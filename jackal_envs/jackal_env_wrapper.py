@@ -1,6 +1,6 @@
 import gym
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 gym.logger.set_level(40)
 
 class SequentialWorldWrapper(gym.Wrapper):
@@ -29,12 +29,12 @@ class SequentialWorldWrapper(gym.Wrapper):
         self.env._set_param('/X', self.env.gazebo_sim.get_model_state().pose.position.x)
         self.rp = [] # sequence of robot X position
         return obs
-
+'''
     def visual_path(self):
         plt.scatter(self.global_path[:,0], self.global_path[:,1])
         plt.scatter(self.env.navi_stack.robot_config.X, self.env.navi_stack.robot_config.Y)
         plt.show()
-
+'''
     def step(self, action):
         # take one step
         obs, rew, done, info = self.env.step(action)
