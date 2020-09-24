@@ -22,8 +22,8 @@ range_dict = {
     'max_vel_theta': [0.314, 3.14],
     'vx_samples': [4, 12],
     'vtheta_samples': [8, 40],
-    'pdist_scale': [0.1, 1.5],
-    'gdist_scale': [0.1, 2]
+    'path_distance_bias': [0.1, 1.5],
+    'goal_distance_bias': [0.1, 2]
 }
 
 class JackalEnvDiscrete(gym.Env):
@@ -31,7 +31,7 @@ class JackalEnvDiscrete(gym.Env):
     def __init__(self, world_name = 'sequential_applr_testbed.world', VLP16 = 'false', gui = 'false', camera = 'false',
                 init_position = [-8, 0, 0], goal_position = [54, 0, 0], max_step = 600, time_step = 1,
                 param_delta = [0.2, 0.3, 1, 2, 0.2, 0.2], param_init = [0.5, 1.57, 6, 20, 0.75, 1],
-                param_list = ['max_vel_x', 'max_vel_theta', 'vx_samples', 'vtheta_samples', 'pdist_scale', 'gdist_scale'],
+                param_list = ['max_vel_x', 'max_vel_theta', 'vx_samples', 'vtheta_samples', 'path_distance_bias', 'goal_distance_bias'],
                 init_world = True):
         gym.Env.__init__(self)
 

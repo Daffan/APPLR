@@ -1,0 +1,16 @@
+Bootstrap: docker
+From: ros:melodic
+
+%post
+    apt -y update; apt-get -y install python3-pip; pip3 install --upgrade pip
+    git clone https://github.com/Daffan/jackal_envs.git
+    cd jackal_envs; pip3 install -e .
+    sudo apt-get -y install ros-melodic-twist-mux ros-melodic-pointcloud-to-laserscan ros-melodic-interactive-marker-twist-server ros-melodic-robot-localization ros-melodic-controller-manager ros-melodic-joint-state-controller ros-melodic-diff-drive-controller ros-melodic-gazebo-ros ros-melodic-gazebo-ros-control ros-melodic-gazebo-plugins             ros-melodic-lms1xx ros-melodic-pointgrey-camera-description ros-melodic-roslint ros-melodic-amcl ros-melodic-gmapping      ros-melodic-map-server ros-melodic-move-base ros-melodic-urdf ros-melodic-xacro ros-melodic-message-runtime ros-melodic-topic-tools ros-melodic-teleop-twist-joy
+    mkdir -p jackal_ws/src; cd jackal_ws/src
+    git clone https://github.com/Daffan/jackal_helper.git
+    git clone https://github.com/jackal/jackal.git
+    git clone https://github.com/jackal/jackal_simulator.git
+    git clone https://github.com/jackal/jackal_desktop.git
+    git clone https://github.com/ros-visualization/interactive_marker_twist_server.git
+    /bin/bash -c "cd ../; source /opt/ros/melodic/setup.bash; catkin_make"
+    pip3 install torch
