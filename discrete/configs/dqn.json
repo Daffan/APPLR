@@ -1,4 +1,8 @@
 {
+  "section": "DQN_testbed",
+  "seed": 43,
+  "device": "cpu",
+  "use_container": true,
   "env_config": {
     "world_name": "sequential_applr_testbed.world",
     "VLP16": "false",
@@ -18,5 +22,23 @@
       "stuck_punishment": 0.5,
       "punishment_reward": -1000
     }
+  },
+  "training_config": {
+    "num_envs": 8,
+    "learning_rate": 0.001,
+    "hidden_layer": [128, 128],
+    "gamma": 0.95,
+    "n_step": 1,
+    "target_update_freq": 500,
+    "prioritized_replay": false,
+    "alpha": 0.6,
+    "beta": 0.4,
+    "buffer_size": 40000,
+    "epoch": 20,
+    "step_per_epoch": 2000,
+    "collect_per_step": 1,
+    "update_per_step": 2,
+    "batch_size": 64,
+    "exploration_ratio": 0.2
   }
 }

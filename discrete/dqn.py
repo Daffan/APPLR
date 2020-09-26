@@ -1,68 +1,125 @@
 from os.path import join, dirname, abspath
 import sys
-
 sys.path.append(dirname(abspath(__file__)))
-
 import jackal_envs
+from jackal_envs.jackal_env_wrapper import wrapper_dict
 
+import gym
+import numpy
 try:
     sys.path.remove('/opt/ros/melodic/lib/python2.7/dist-packages')
 except:
     pass
+import torch
+from torch.utils.tensorboard import SummaryWriter
 
-from stable_baselines import DQN
-from stable_baselines.common.callbacks import BaseCallback
+from tianshou.env import SubprocVectorEnv, DummyVectorEnv
+from tianshou.policy import DQNPolicy
+from tianshou.data import Collector, ReplayBuffer, PrioritizedReplayBuffer
+from offpolicy import offpolicy_trainer
+
 sys.path.append('/opt/ros/melodic/lib/python2.7/dist-packages')
 
+import pickle
+import argparse
+import json
+from datetime import datetime
+import os
 
 parser = argparse.ArgumentParser(description = 'Jackal navigation simulation')
-parser.add_argument('--config', dest = 'config_path', type = str, default = '../configs/default.json', help = 'path to the configuration file')
+parser.add_argument('--config', dest = 'config_path', type = str, default = 'configs/dqn.json', help = 'path to the configuration file')
 parser.add_argument('--save', dest = 'save_path', type = str, default = 'results/', help = 'path to the saving folder')
-parser.add_argument('--lr', type=float, default=1e-3)
-parser.add_argument('--gamma', type=float, default=0.99)
-parser.add_argument('--buffer-size', type=int, default=50000)
 
 args = parser.parse_args()
 config_path = args.config_path
 save_path = args.save_path
 
+# Load the config files
 with open(config_path, 'rb') as f:
     config = json.load(f)
 
+env_config = config['env_config']
+wrapper_config = config['wrapper_config']
+training_config = config['training_config']
+
+# Config logging
 now = datetime.now()
 dt_string = now.strftime("%Y_%m_%d_%H_%M")
 save_path = os.path.join(save_path, config['section'] + "_" + dt_string)
 if not os.path.exists(save_path):
     os.mkdir(save_path)
-
+writer = SummaryWriter(save_path)
 with open(os.path.join(save_path, 'config.json'), 'w') as fp:
     json.dump(config, fp)
 
-env = wrapper_dict[config['wrapper_config']['wrapper']] \
-        (gym.make('jackal_navigation-v0', **config['env_config']), **config['wrapper_config']['wrapper_args'])
+# initialize the env --> num_env can only be one right now
+if not config['use_container']:
+    env = wrapper_dict[wrapper_config['wrapper']](gym.make('jackal_navigation-v0', **env_config), wrapper_config['wrapper_args'])
+    train_envs = DummyVectorEnv([lambda: env for _ in range(1)])
+    state_shape = env.observation_space.shape or env.observation_space.n
+    action_shape = env.action_space.shape or env.action_space.n
+else:
+    env = gym.make('jackal_navigation_parallel-v0', config_path=config_path)
+    state_shape = env.observation_space.shape or env.observation_space.n
+    action_shape = env.action_space.shape or env.action_space.n
+    env.close()
+    train_envs = SubprocVectorEnv([lambda: gym.make('jackal_navigation_parallel-v0', config_path=config_path) \
+                                for _ in range(training_config['num_envs'])])
 
-class SaveEveryStepIntervalsCallback(BaseCallback):
+# config random seed
+np.random.seed(config['seed'])
+torch.manual_seed(config['seed'])
+train_envs.seed(config['seed'])
+'''
+net = Net(training_config['layer_num'], state_shape, action_shape, config['device']).to(config['device'])
+optim = torch.optim.Adam(net.parameters(), lr=training_config['learning_rate'])
+'''
 
-    def __init__(self, check_freq: int, save_path: str, verbose=1):
-        super(SaveEveryStepIntervalsCallback, self).__init__(verbose)
-        self.check_freq = check_freq
-        self.save_path = save_path
+class DuelingDQN(nn.Module):
+    def __init__(self, state_shape, action_shape, hidden_layer = [128, 128]):
+        super().__init__()
+        layers = [np.prod(state_shape)] + hidden_layer + [np.prod(action_shape)]
+        self.value = []
+        self.advantage = []
+        for i, o in layers[:-1], layers[1:]:
+            self.value.append(nn.Linear(i, o), nn.ReLU(inplace=True))
+            self.advantage.append(nn.Linear(i, o), nn.ReLU(inplace=True))
+        self.value = nn.Sequential(self.value)
+        self.advantage = nn.Sequential(self.advantage)
 
-    def _on_step(self) -> bool:
-        if self.n_calls % self.check_freq == 0:
-            self.model.save(os.path.join(self.save_path, 'model_%d' %(self.n_calls)))
+    def forward(self, obs, state=None, info={}):
+        if not isinstance(obs, torch.Tensor):
+            obs = torch.tensor(obs, dtype=torch.float)
+        batch = obs.shape[0]
+        advantage = self.advantage(obs.view(batch, -1))
+        value = self.value(obs.view(batch, -1))
+        logits = value + advantage - advantage.mean(1, keepdim=True)
+        return logits, state
 
-        return True
-callback = SaveEveryStepIntervalsCallback(500, save_path)
+net = DuelingDQN(state_shape, action_shape, hidden_layer = training_config['hidden_layer'])
+optim = torch.optim.Adam(net.parameters(), lr=training_config['learning_rate'])
 
-model = DQN(config['policy_network'], env,
-                    learning_rate = config['learning_rate'],
-                    buffer_size = config['buffer_size'],
-                    target_network_update_freq = 64,
-                    gamma = config['gamma'], # policy_kwargs = config['policy_kwargs'],
-                    verbose=1, tensorboard_log = save_path)
+policy = DQNPolicy(
+        net, optim, training_config['gamma'], training_config['n_step'],
+        target_update_freq=training_config['target_update_freq'])
 
-model.learn(config['total_steps'], callback = callback)
-model.save(os.path.join(save_path, 'model'))
+if training_config['prioritized_replay']:
+    buf = PrioritizedReplayBuffer(
+            training_config['buffer_size'],
+            alpha=training_config['alpha'], beta=training_config['beta'])
+else:
+    buf = ReplayBuffer(training_config['buffer_size'])
+policy.set_eps(1)
+train_collector = Collector(policy, train_envs, buf)
+train_collector.collect(n_step=1)
 
-env.close()
+train_fn =lambda e: [policy.set_eps(max(0.05, 1-e/training_config['epoch']/training_config['exploration_ratio'])),
+                    torch.save(policy.state_dict(), os.path.join(save_path, 'policy_%d.pth' %(e)))]
+
+result = offpolicy_trainer(
+        policy, train_collector, training_config['epoch'],
+        training_config['step_per_epoch'], training_config['collect_per_step'],
+        training_config['batch_size'], update_per_step=training_config['update_per_step'],
+        train_fn=train_fn, writer=writer)
+
+train_envs.close()
