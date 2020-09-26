@@ -1,16 +1,16 @@
 from os.path import join, dirname, abspath
 import sys
-sys.path.append(dirname(abspath(__file__)))
+sys.path.append(dirname(dirname(abspath(__file__))))
 import jackal_envs
-from jackal_envs.jackal_env_wrapper import wrapper_dict
 
 import gym
-import numpy
+import numpy as np
 try:
     sys.path.remove('/opt/ros/melodic/lib/python2.7/dist-packages')
 except:
     pass
 import torch
+from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 
 from tianshou.env import SubprocVectorEnv, DummyVectorEnv
@@ -53,8 +53,9 @@ with open(os.path.join(save_path, 'config.json'), 'w') as fp:
     json.dump(config, fp)
 
 # initialize the env --> num_env can only be one right now
+wrapper_dict = jackal_envs.jackal_env_wrapper.wrapper_dict
 if not config['use_container']:
-    env = wrapper_dict[wrapper_config['wrapper']](gym.make('jackal_navigation-v0', **env_config), wrapper_config['wrapper_args'])
+    env = wrapper_dict[wrapper_config['wrapper']](gym.make('jackal_discrete-v0', **env_config), **wrapper_config['wrapper_args'])
     train_envs = DummyVectorEnv([lambda: env for _ in range(1)])
     state_shape = env.observation_space.shape or env.observation_space.n
     action_shape = env.action_space.shape or env.action_space.n
@@ -78,14 +79,19 @@ optim = torch.optim.Adam(net.parameters(), lr=training_config['learning_rate'])
 class DuelingDQN(nn.Module):
     def __init__(self, state_shape, action_shape, hidden_layer = [128, 128]):
         super().__init__()
-        layers = [np.prod(state_shape)] + hidden_layer + [np.prod(action_shape)]
+        layers = [np.prod(state_shape)] + hidden_layer
         self.value = []
         self.advantage = []
-        for i, o in layers[:-1], layers[1:]:
-            self.value.append(nn.Linear(i, o), nn.ReLU(inplace=True))
-            self.advantage.append(nn.Linear(i, o), nn.ReLU(inplace=True))
-        self.value = nn.Sequential(self.value)
-        self.advantage = nn.Sequential(self.advantage)
+        for i, o in zip(layers[:-1], layers[1:]):
+            self.value.append(nn.Linear(i, o))
+            self.value.append(nn.ReLU(inplace=True))
+            self.advantage.append(nn.Linear(i, o))
+            self.advantage.append(nn.ReLU(inplace=True))
+        self.advantage.append(nn.Linear(o, np.prod(action_shape)))
+        self.value.append(nn.Linear(o, 1))
+
+        self.value = nn.Sequential(*self.value)
+        self.advantage = nn.Sequential(*self.advantage)
 
     def forward(self, obs, state=None, info={}):
         if not isinstance(obs, torch.Tensor):
