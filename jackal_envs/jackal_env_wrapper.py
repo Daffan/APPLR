@@ -5,7 +5,7 @@ gym.logger.set_level(40)
 
 class SequentialWorldWrapper(gym.Wrapper):
 
-    def __init__(self, env, goal_distance_reward = 2, stuck_punishment = 0.5, punishment_reward = 1000):
+    def __init__(self, env, goal_distance_reward = 2, stuck_punishment = 0.5, punishment_reward = -1000):
         '''A wrapper that will shape the reward by the length of the globle path. The robot flip over or stuck at the same
         place for 100 step will terminate and return a large negative reward.
         args:

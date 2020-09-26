@@ -6,7 +6,7 @@
   "env_config": {
     "world_name": "sequential_applr_testbed.world",
     "VLP16": "false",
-    "gui": "true",
+    "gui": "false",
     "max_step": 600,
     "time_step": 1,
     "init_position": [-8, 0, 0],
@@ -33,11 +33,11 @@
     "prioritized_replay": false,
     "alpha": 0.6,
     "beta": 0.4,
-    "buffer_size": 40000,
+    "buffer_size": 50000,
     "epoch": 20,
     "step_per_epoch": 2000,
     "collect_per_step": 1,
-    "update_per_step": 2,
+    "update_per_step": 1,
     "batch_size": 64,
     "exploration_ratio": 0.2
   }
