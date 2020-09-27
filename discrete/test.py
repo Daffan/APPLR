@@ -1,14 +1,13 @@
 from os.path import join, dirname, abspath
 import sys
 sys.path.append(dirname(dirname(abspath(__file__))))
-import jackal_envs
-from jackal_envs.jackal_env_wrapper import *
+import jackal_navi_envs
+from jackal_navi_envs.jackal_env_wrapper import *
 
 import gym
 import numpy
 import torch
 from torch import nn
-from tianshou.utils.net.common import Net
 
 import argparse
 from datetime import datetime
@@ -104,10 +103,10 @@ for i in range(avg):
     obs = env.reset()
     done = False
     while not done:
-        actions = np.array(model(torch.tensor([obs]))[0].detach().cpu().float())
+        actions = np.array(model(torch.tensor([obs]).float())[0].detach().cpu())
         action = np.argmax(actions.reshape(-1))
         obs, reward, done, info = env.step(action)
-        print('current step: %d, X position: %f, reward: %f' %(count, info['X'], rew))
+        print('current step: %d, X position: %f, reward: %f' %(count, info['X'], reward))
         print(info['params'])
         params = np.array(info['params'])
         pms = np.append(pms, np.expand_dims(params, -1), -1)

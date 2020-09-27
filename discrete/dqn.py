@@ -1,7 +1,7 @@
 from os.path import join, dirname, abspath
 import sys
 sys.path.append(dirname(dirname(abspath(__file__))))
-import jackal_envs
+import jackal_navi_envs
 
 import gym
 import numpy as np
@@ -53,7 +53,7 @@ with open(os.path.join(save_path, 'config.json'), 'w') as fp:
     json.dump(config, fp)
 
 # initialize the env --> num_env can only be one right now
-wrapper_dict = jackal_envs.jackal_env_wrapper.wrapper_dict
+wrapper_dict = jackal_navi_envs.jackal_env_wrapper.wrapper_dict
 if not config['use_container']:
     env = wrapper_dict[wrapper_config['wrapper']](gym.make('jackal_discrete-v0', **env_config), **wrapper_config['wrapper_args'])
     train_envs = DummyVectorEnv([lambda: env for _ in range(1)])

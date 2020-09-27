@@ -1,5 +1,5 @@
-import jackal_envs
-from jackal_envs.jackal_env_wrapper import SequentialWorldWrapper
+import jackal_navi_envs
+from jackal_navi_envs.jackal_env_wrapper import SequentialWorldWrapper
 import gym
 
 def main():
