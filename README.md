@@ -7,4 +7,4 @@
 
 * Run test in container
 
-`singularity exec -B /path/to/APPLR:/APPLR APPLR_melodic.simg /bin/bash -c 'source /jackal_ws/devel/setup.bash; python3 /APPLR/test.py'`
+`./singularity_run.sh python3 ../test.py`
