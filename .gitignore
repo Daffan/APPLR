@@ -1,3 +1,7 @@
 sftp-config.json
 
 discrete/results
+
+
+__pycache__
+

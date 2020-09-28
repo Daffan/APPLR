@@ -56,12 +56,11 @@ class Collector(object):
                     # print('waiting actor %d to be initialized' %(id))
                 self.ep_count[id] = len(trajs)
                 if trajs[c:]:
-                    for t in trajs:
+                    for t in trajs[c:]:
                         with open(join(base, t), 'rb') as f:
                             traj = pickle.load(f)
                             self.buffer_expand(traj)
                             steps += len(traj)
-                            f.close()
         return {'n/st': steps}
 
 

@@ -29,7 +29,7 @@ range_dict = {
 class JackalEnvDiscrete(gym.Env):
 
     def __init__(self, world_name = 'sequential_applr_testbed.world', VLP16 = 'false', gui = 'false', camera = 'false',
-                init_position = [-8, 0, 0], goal_position = [54, 0, 0], max_step = 600, time_step = 1,
+                init_position = [-8, 0, 0], goal_position = [54, 0, 0], max_step = 600, time_step = 1, laser_clip = 4,
                 param_delta = [0.2, 0.3, 1, 2, 0.2, 0.2], param_init = [0.5, 1.57, 6, 20, 0.75, 1],
                 param_list = ['max_vel_x', 'max_vel_theta', 'vx_samples', 'vtheta_samples', 'path_distance_bias', 'goal_distance_bias'],
                 init_world = True):
@@ -40,6 +40,7 @@ class JackalEnvDiscrete(gym.Env):
         self.gui = True if gui=='true' else False
         self.max_step = max_step
         self.time_step = time_step
+        self.laser_clip = laser_clip
         self.goal_position = goal_position
         self.param_delta = param_delta
         self.param_init = param_init
@@ -94,7 +95,7 @@ class JackalEnvDiscrete(gym.Env):
         to -1 for each step
         '''
         scan_ranges = np.array(laser_scan.ranges)
-        scan_ranges[scan_ranges == np.inf] = 20
+        scan_ranges[scan_ranges > self.laser_clip] = self.laser_clip
         y = 0.001 if abs(local_goal.position.y) < 0.001 else local_goal.position.y
         local_goal_position = np.array([np.arctan(local_goal.position.x/y)])
         params = []
@@ -102,7 +103,7 @@ class JackalEnvDiscrete(gym.Env):
         for pn in self.param_list:
             params.append(self.navi_stack.get_navi_param(pn))
             params_normal.append((params[-1]-float(range_dict[pn][1])/2)/float(range_dict[pn][1])) #normalize to [-0.5, 0.5]
-        state = np.concatenate([(scan_ranges-10)/20.0, (local_goal_position)/np.pi, np.array(params_normal)])
+        state = np.concatenate([(scan_ranges-self.laser_clip/2)/self.laser_clip, (local_goal_position)/np.pi, np.array(params_normal)])
 
         pr = np.array([self.navi_stack.robot_config.X, self.navi_stack.robot_config.Y])
         gpl = np.array(self.goal_position[:2])
