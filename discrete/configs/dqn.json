@@ -9,6 +9,7 @@
     "gui": "false",
     "max_step": 300,
     "time_step": 1,
+    "laser_clip": 4,
     "init_position": [-8, 0, 0],
     "goal_position": [54, 0, 0],
     "param_delta": [0.2, 0.3, 1, 2, 0.2, 0.2],
