@@ -101,8 +101,8 @@ class JackalEnvDiscrete(gym.Env):
         params_normal = []
         for pn in self.param_list:
             params.append(self.navi_stack.get_navi_param(pn))
-            params_normal.append(params[-1]/float(range_dict[pn][1]))
-        state = np.concatenate([scan_ranges/20.0, local_goal_position/np.pi, np.array(params_normal)])
+            params_normal.append((params[-1]-float(range_dict[pn][1])/2)/float(range_dict[pn][1])) #normalize to [-0.5, 0.5]
+        state = np.concatenate([(scan_ranges-10)/20.0, (local_goal_position)/np.pi, np.array(params_normal)])
 
         pr = np.array([self.navi_stack.robot_config.X, self.navi_stack.robot_config.Y])
         gpl = np.array(self.goal_position[:2])

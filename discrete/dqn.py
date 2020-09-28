@@ -16,6 +16,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tianshou.env import SubprocVectorEnv, DummyVectorEnv
 from tianshou.policy import DQNPolicy
 from tianshou.data import Collector, ReplayBuffer, PrioritizedReplayBuffer
+from collector import Collector as Fake_Collector
 from offpolicy import offpolicy_trainer
 
 sys.path.append('/opt/ros/melodic/lib/python2.7/dist-packages')
@@ -60,17 +61,16 @@ if not config['use_container']:
     state_shape = env.observation_space.shape or env.observation_space.n
     action_shape = env.action_space.shape or env.action_space.n
 else:
-    env = gym.make('jackal_navigation_parallel-v0', config_path=config_path)
-    state_shape = env.observation_space.shape or env.observation_space.n
-    action_shape = env.action_space.shape or env.action_space.n
-    env.close()
-    train_envs = SubprocVectorEnv([lambda: gym.make('jackal_navigation_parallel-v0', config_path=config_path) \
-                                for _ in range(training_config['num_envs'])])
+    train_envs = config
+    Collector = Fake_Collector
+    state_shape = 727
+    action_shape = 65
 
 # config random seed
 np.random.seed(config['seed'])
 torch.manual_seed(config['seed'])
-train_envs.seed(config['seed'])
+if not config['use_container']:
+    train_envs.seed(config['seed'])
 '''
 net = Net(training_config['layer_num'], state_shape, action_shape, config['device']).to(config['device'])
 optim = torch.optim.Adam(net.parameters(), lr=training_config['learning_rate'])

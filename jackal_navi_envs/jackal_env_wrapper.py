@@ -60,6 +60,7 @@ class SequentialWorldWrapper(gym.Wrapper):
             done = True
         info['X'] = position.x
         info['Y'] = position.y
+        rew = rew/100
 
         return obs, rew, done, info
 

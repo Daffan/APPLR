@@ -2,7 +2,7 @@
   "section": "DQN_testbed",
   "seed": 43,
   "device": "cpu",
-  "use_container": false,
+  "use_container": true,
   "env_config": {
     "world_name": "sequential_applr_testbed.world",
     "VLP16": "false",
@@ -24,7 +24,7 @@
     }
   },
   "training_config": {
-    "num_envs": 1,
+    "num_actor": 1,
     "learning_rate": 0.001,
     "hidden_layer": [128, 128],
     "gamma": 0.95,
@@ -38,7 +38,7 @@
     "step_per_epoch": 20000,
     "collect_per_step": 1,
     "update_per_step": 10,
-    "batch_size": 64,
+    "batch_size": 128,
     "exploration_ratio": 0.2
   }
 }

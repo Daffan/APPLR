@@ -11,7 +11,7 @@ from tianshou.trainer import test_episode, gather_info
 
 def offpolicy_trainer(
         policy: BasePolicy,
-        train_collector: Collector,
+        train_collector,
         max_epoch: int,
         step_per_epoch: int,
         collect_per_step: int,
