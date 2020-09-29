@@ -28,6 +28,7 @@
     "num_actor": 1,
     "learning_rate": 0.001,
     "hidden_layer": [128, 128],
+    "cnn": true,
     "gamma": 0.95,
     "n_step": 1,
     "target_update_freq": 500,

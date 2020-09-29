@@ -77,9 +77,23 @@ optim = torch.optim.Adam(net.parameters(), lr=training_config['learning_rate'])
 '''
 
 class DuelingDQN(nn.Module):
-    def __init__(self, state_shape, action_shape, hidden_layer = [128, 128]):
+    def __init__(self, state_shape, action_shape, hidden_layer = [64, 64], cnn = True):
         super().__init__()
-        layers = [np.prod(state_shape)] + hidden_layer
+        if cnn:
+            self.feature = nn.Sequential(
+                nn.Conv1d(in_channels=1, out_channels=32, kernel_size=5, stride=2),
+                nn.ReLU(), nn.MaxPool1d(kernel_size = 5),
+                nn.Conv1d(in_channels=32, out_channels=64, kernel_size=5, stride=2),
+                nn.ReLU(), nn.MaxPool1d(kernel_size = 5),
+                nn.Conv1d(in_channels=64, out_channels=64, kernel_size=1),
+                nn.ReLU(), nn.AvgPool1d(6)
+                )
+            feature_shape = 64
+        else:
+            self.feature = lambda x: x.view(x.shape[0], -1)
+            feature_shape = 727
+
+        layers = [np.prod(feature_shape)] + hidden_layer
         self.value = []
         self.advantage = []
         for i, o in zip(layers[:-1], layers[1:]):
@@ -97,12 +111,18 @@ class DuelingDQN(nn.Module):
         if not isinstance(obs, torch.Tensor):
             obs = torch.tensor(obs, dtype=torch.float)
         batch = obs.shape[0]
-        advantage = self.advantage(obs.view(batch, -1))
-        value = self.value(obs.view(batch, -1))
+        laser = obs.view(batch, 1, -1)[:,:,:721]
+        params = obs.view(batch, -1)[:, 721:]
+
+        embedding = self.feature(laser).view(1, -1)
+        feature = torch.cat((embedding, params), dim = 1)
+
+        advantage = self.advantage(feature)
+        value = self.value(feature)
         logits = value + advantage - advantage.mean(1, keepdim=True)
         return logits, state
 
-net = DuelingDQN(state_shape, action_shape, hidden_layer = training_config['hidden_layer'])
+net = DuelingDQN(state_shape, action_shape, hidden_layer = training_config['hidden_layer'], cnn = training_config['cnn'])
 optim = torch.optim.Adam(net.parameters(), lr=training_config['learning_rate'])
 
 policy = DQNPolicy(
@@ -117,7 +137,7 @@ else:
     buf = ReplayBuffer(training_config['buffer_size'])
 policy.set_eps(1)
 train_collector = Collector(policy, train_envs, buf)
-train_collector.collect(n_step=1000)
+train_collector.collect(n_step=1000, random = True)
 
 train_fn =lambda e: [policy.set_eps(max(0.05, 1-(e-1)/training_config['epoch']/training_config['exploration_ratio'])),
                     torch.save(policy.state_dict(), os.path.join(save_path, 'policy_%d.pth' %(e)))]
