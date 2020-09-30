@@ -68,7 +68,7 @@ from .gazebo_simulation import GazeboSimulation
 from .navigation_stack import  NavigationStack
 from os.path import abspath, dirname, join
 
-class BenchingMarkingWrapper(gym.Wrapper):
+class BenchMarkingWrapper(gym.Wrapper):
     def __init__(self, env, world_id = 0, max_step = 50, penalty = -30):
         self.world_id = world_id
         self.env = env
@@ -107,6 +107,6 @@ class BenchingMarkingWrapper(gym.Wrapper):
 
 wrapper_dict = {
     'sequential_world_wrapper': SequentialWorldWrapper,
-    'benching_marking_wrapper': BenchingMarkingWrapper,
+    'bench_marking_wrapper': BenchMarkingWrapper,
     'default': lambda env: env
 }
