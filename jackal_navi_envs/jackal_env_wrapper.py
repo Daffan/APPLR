@@ -75,8 +75,8 @@ class BenchMarkingWrapper(gym.Wrapper):
         self.env.max_step = max_step
         base = dirname(abspath(__file__))
         path = np.load(join(base, 'path_files', 'path_%d.npy' % world_id))
-        init_x, init_y = path_coord_to_gazebo_coord(*path[0])
-        goal_x, goal_y = path_coord_to_gazebo_coord(*path[-1])
+        init_x, init_y = self.path_coord_to_gazebo_coord(*path[0])
+        goal_x, goal_y = self.path_coord_to_gazebo_coord(*path[-1])
         goal_x -= init_x
         goal_y -= init_y
 
