@@ -70,6 +70,7 @@ from os.path import abspath, dirname, join
 
 class BenchMarkingWrapper(gym.Wrapper):
     def __init__(self, env, world_id = 0, max_step = 50, penalty = -30):
+        super(BenchMarkingWrapper, self).__init__(env)
         self.world_id = world_id
         self.env = env
         self.env.max_step = max_step
