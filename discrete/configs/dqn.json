@@ -21,7 +21,8 @@
     "wrapper_args": {
       "goal_distance_reward": 2,
       "stuck_punishment": 1,
-      "punishment_reward": -1000
+      "punishment_reward": -1000,
+      "reward_scale": 1
     }
   },
   "training_config": {
