@@ -88,7 +88,7 @@ class DuelingDQN(nn.Module):
                 nn.Conv1d(in_channels=64, out_channels=64, kernel_size=1),
                 nn.ReLU(), nn.AvgPool1d(6)
                 )
-            feature_shape = 64
+            feature_shape = 70
         else:
             self.feature = lambda x: x.view(x.shape[0], -1)
             feature_shape = 727
