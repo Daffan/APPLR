@@ -85,7 +85,7 @@ class BenchMarkingWrapper(gym.Wrapper):
         env.gazebo_sim = GazeboSimulation(init_position = self.init_position)
         env.navi_stack = NavigationStack(goal_position = self.goal_position)
 
-    def path_coord_to_gazebo_coord(x, y):
+    def path_coord_to_gazebo_coord(self, x, y):
         RADIUS = 0.075
         r_shift = -RADIUS - (30 * RADIUS * 2)
         c_shift = RADIUS + 5
