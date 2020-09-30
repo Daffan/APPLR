@@ -42,6 +42,7 @@ class JackalEnvDiscrete(gym.Env):
         self.time_step = time_step
         self.laser_clip = laser_clip
         self.goal_position = goal_position
+        self.init_position = init_position
         self.param_delta = param_delta
         self.param_init = param_init
         self.param_list = param_list

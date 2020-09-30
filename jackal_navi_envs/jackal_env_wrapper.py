@@ -73,6 +73,7 @@ class BenchMarkingWrapper(gym.Wrapper):
         self.world_id = world_id
         self.env = env
         self.env.max_step = max_step
+        self.penalty = penalty
         base = dirname(abspath(__file__))
         path = np.load(join(base, 'path_files', 'path_%d.npy' % world_id))
         init_x, init_y = self.path_coord_to_gazebo_coord(*path[0])
@@ -82,8 +83,12 @@ class BenchMarkingWrapper(gym.Wrapper):
 
         self.init_position = [init_x, init_y, np.pi/2]
         self.goal_position = [goal_x, goal_y, np.pi/2]
+        self.env.goal_position = self.goal_position
+        self.env.init_position = self.init_position
         env.gazebo_sim = GazeboSimulation(init_position = self.init_position)
         env.navi_stack = NavigationStack(goal_position = self.goal_position)
+
+        self.env.reset()
 
     def path_coord_to_gazebo_coord(self, x, y):
         RADIUS = 0.075
