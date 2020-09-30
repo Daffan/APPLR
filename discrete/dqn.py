@@ -114,7 +114,7 @@ class DuelingDQN(nn.Module):
         laser = obs.view(batch, 1, -1)[:,:,:721]
         params = obs.view(batch, -1)[:, 721:]
 
-        embedding = self.feature(laser).view(1, -1)
+        embedding = self.feature(laser).view(batch, -1)
         feature = torch.cat((embedding, params), dim = 1)
 
         advantage = self.advantage(feature)
