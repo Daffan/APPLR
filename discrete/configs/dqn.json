@@ -29,6 +29,7 @@
     "num_actor": 1,
     "pre_collect": 1000,
     "learning_rate": 0.001,
+    "grad_norm_clipping": 10,
     "hidden_layer": [128, 128],
     "cnn": true,
     "gamma": 0.95,

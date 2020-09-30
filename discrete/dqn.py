@@ -14,7 +14,7 @@ from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 
 from tianshou.env import SubprocVectorEnv, DummyVectorEnv
-from tianshou.policy import DQNPolicy
+from policy import DQNPolicy
 from tianshou.data import Collector, ReplayBuffer, PrioritizedReplayBuffer
 from collector import Collector as Fake_Collector
 from offpolicy import offpolicy_trainer
@@ -127,6 +127,7 @@ optim = torch.optim.Adam(net.parameters(), lr=training_config['learning_rate'])
 
 policy = DQNPolicy(
         net, optim, training_config['gamma'], training_config['n_step'],
+        grad_norm_clipping = training_config['grad_norm_clipping'],
         target_update_freq=training_config['target_update_freq'])
 
 if training_config['prioritized_replay']:
