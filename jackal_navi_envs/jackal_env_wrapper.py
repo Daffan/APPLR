@@ -64,6 +64,46 @@ class SequentialWorldWrapper(gym.Wrapper):
 
         return obs, rew, done, info
 
+from .gazebo_simulation import GazeboSimulation
+from .navigation_stack import  NavigationStack
+from os.path import abspath, dirname, join
+
+class BenchingMarkingWrapper(gym.Wrapper):
+    def __init__(self, env, world_id = 0, max_step = 50, penalty = -30):
+        self.world_id = world_id
+        self.env = env
+        self.env.max_step = max_step
+        base = dirname(abspath(__file__))
+        path = np.load(join(base, 'path_files', 'path_%d.npy' % world_id))
+        init_x, init_y = path_coord_to_gazebo_coord(*path[0])
+        goal_x, goal_y = path_coord_to_gazebo_coord(*path[-1])
+        goal_x -= init_x
+        goal_y -= init_y
+
+        self.init_position = [init_x, init_y, np.pi/2]
+        self.goal_position = [goal_x, goal_y, np.pi/2]
+        env.gazebo_sim = GazeboSimulation(init_position = self.init_position)
+        env.navi_stack = NavigationStack(goal_position = self.goal_position)
+
+    def path_coord_to_gazebo_coord(x, y):
+        RADIUS = 0.075
+        r_shift = -RADIUS - (30 * RADIUS * 2)
+        c_shift = RADIUS + 5
+
+        gazebo_x = x * (RADIUS * 2) + r_shift
+        gazebo_y = y * (RADIUS * 2) + c_shift
+
+        return (gazebo_x, gazebo_y)
+
+    def step(self, act):
+        obs, rew, done, info = self.env.step(act)
+        fail = self.env._get_param('/step_count') >= self.env.max_step
+
+        if done and fail:
+            rew += self.penalty
+
+        return obs, rew, done, info
+
 
 wrapper_dict = {
     'sequential_world_wrapper': SequentialWorldWrapper,
