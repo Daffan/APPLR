@@ -137,7 +137,7 @@ else:
     buf = ReplayBuffer(training_config['buffer_size'])
 policy.set_eps(1)
 train_collector = Collector(policy, train_envs, buf)
-train_collector.collect(n_step=1000, random = True)
+train_collector.collect(n_step=training_config['pre_collect'], random = True)
 
 train_fn =lambda e: [policy.set_eps(max(0.05, 1-(e-1)/training_config['epoch']/training_config['exploration_ratio'])),
                     torch.save(policy.state_dict(), os.path.join(save_path, 'policy_%d.pth' %(e)))]
