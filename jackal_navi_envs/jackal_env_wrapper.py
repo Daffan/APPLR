@@ -79,7 +79,7 @@ class BenchMarkingWrapper(gym.Wrapper):
         init_x, init_y = self.path_coord_to_gazebo_coord(*path[0])
         goal_x, goal_y = self.path_coord_to_gazebo_coord(*path[-1])
         goal_x -= init_x
-        goal_y -= init_y
+        goal_y -= (init_y-1)
 
         self.init_position = [init_x, init_y, np.pi/2]
         self.goal_position = [goal_x, goal_y, np.pi/2]
