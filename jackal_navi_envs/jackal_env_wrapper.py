@@ -107,5 +107,6 @@ class BenchingMarkingWrapper(gym.Wrapper):
 
 wrapper_dict = {
     'sequential_world_wrapper': SequentialWorldWrapper,
+    'benching_marking_wrapper': BenchingMarkingWrapper,
     'default': lambda env: env
 }
