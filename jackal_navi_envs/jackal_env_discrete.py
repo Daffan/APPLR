@@ -41,8 +41,19 @@ class JackalEnvDiscrete(gym.Env):
         self.max_step = max_step
         self.time_step = time_step
         self.laser_clip = laser_clip
-        self.goal_position = goal_position
-        self.init_position = init_position
+        if not world_name.startwith('Benchmarking'):
+            self.goal_position = goal_position
+            self.init_position = init_position
+        else:
+            base = dirname(abspath(__file__))
+            path = np.load(join(base, 'path_files', 'path_%d.npy' % world_id))
+            init_x, init_y = self.path_coord_to_gazebo_coord(*path[0])
+            goal_x, goal_y = self.path_coord_to_gazebo_coord(*path[-1])
+            goal_x -= init_x
+            goal_y -= (init_y-1)
+            self.init_position = [init_x, init_y, np.pi/2]
+            self.goal_position = [goal_x, goal_y, np.pi/2]
+
         self.param_delta = param_delta
         self.param_init = param_init
         self.param_list = param_list
@@ -67,8 +78,8 @@ class JackalEnvDiscrete(gym.Env):
         rospy.set_param('/use_sim_time', True)
         rospy.init_node('gym', anonymous=True)
 
-        self.gazebo_sim = GazeboSimulation(init_position = init_position)
-        self.navi_stack = NavigationStack(goal_position = goal_position)
+        self.gazebo_sim = GazeboSimulation(init_position = self.init_position)
+        self.navi_stack = NavigationStack(goal_position = self.goal_position)
 
         self.action_space = spaces.Discrete(2**len(param_list)+1)
         self.reward_range = (-np.inf, np.inf)
@@ -88,6 +99,16 @@ class JackalEnvDiscrete(gym.Env):
     def _seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
+
+    def path_coord_to_gazebo_coord(self, x, y):
+        RADIUS = 0.075
+        r_shift = -RADIUS - (30 * RADIUS * 2)
+        c_shift = RADIUS + 5
+
+        gazebo_x = x * (RADIUS * 2) + r_shift
+        gazebo_y = y * (RADIUS * 2) + c_shift
+
+        return (gazebo_x, gazebo_y)
 
     def _observation_builder(self, laser_scan, local_goal):
         '''
