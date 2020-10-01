@@ -47,7 +47,7 @@ class JackalEnvDiscrete(gym.Env):
             self.init_position = init_position
         else:
             base = dirname(abspath(__file__))
-            world_id = int(world_name.split('_')[-1])
+            world_id = world_name.split('_')[-1].split('.')[0]
             path = np.load(join(base, 'path_files', 'path_%d.npy' % world_id))
             init_x, init_y = self.path_coord_to_gazebo_coord(*path[0])
             goal_x, goal_y = self.path_coord_to_gazebo_coord(*path[-1])
