@@ -41,7 +41,7 @@ class JackalEnvDiscrete(gym.Env):
         self.max_step = max_step
         self.time_step = time_step
         self.laser_clip = laser_clip
-        if not world_name.startwith('Benchmarking'):
+        if not world_name.startswith('Benchmarking'):
             self.goal_position = goal_position
             self.init_position = init_position
         else:
