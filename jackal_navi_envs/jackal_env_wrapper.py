@@ -87,8 +87,9 @@ class BenchMarkingWrapper(gym.Wrapper):
         self.goal_position = [goal_x, goal_y, np.pi/2]
         self.env.goal_position = self.goal_position
         self.env.init_position = self.init_position
-        env.gazebo_sim = GazeboSimulation(init_position = self.init_position)
-        env.navi_stack = NavigationStack(goal_position = self.goal_position)
+        self.env.gazebo_sim = GazeboSimulation(init_position = self.init_position)
+        self.env.navi_stack = NavigationStack(goal_position = self.goal_position)
+        self.env.navi_stack.set_global_goal()
 
         self.env.reset()
 
