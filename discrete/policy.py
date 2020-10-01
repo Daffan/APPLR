@@ -161,9 +161,10 @@ class DQNPolicy(BasePolicy):
         q = self(batch, eps=0.).logits
         q = q[np.arange(len(q)), batch.act]
         r = to_torch_as(batch.returns, q).flatten()
-        td = r - q
-        loss = (td.pow(2) * batch.weight).mean()
-        batch.weight = td  # prio-buffer
+        c = torch.nn.SmoothL1Loss(reduction = 'none')
+        td = c(r, q)
+        loss = (td * batch.weight).mean()
+        batch.weight = r - q  # prio-buffer
         loss.backward()
         if self.grad_norm_clipping:
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_norm_clipping)
