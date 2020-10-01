@@ -109,6 +109,10 @@ class BenchMarkingWrapper(gym.Wrapper):
         if done and fail:
             rew += self.penalty
 
+        position = self.env.gazebo_sim.get_model_state().pose.position
+        info['X'] = position.x
+        info['Y'] = position.y
+
         return obs, rew, done, info
 
 
