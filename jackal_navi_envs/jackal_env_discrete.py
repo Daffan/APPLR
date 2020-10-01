@@ -5,7 +5,7 @@ import roslaunch
 import time
 import numpy as np
 import os
-from os.path import dirname, join
+from os.path import dirname, join, abspath
 import subprocess
 
 from gym import utils, spaces
