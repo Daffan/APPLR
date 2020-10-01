@@ -13,4 +13,4 @@ From: ros:melodic
     git clone https://github.com/jackal/jackal_desktop.git
     git clone https://github.com/ros-visualization/interactive_marker_twist_server.git
     /bin/bash -c "cd ../; source /opt/ros/melodic/setup.bash; catkin_make"
-    pip3 install torch tianshou
+    pip3 install torch; pip3 install tianshou==0.2.6
