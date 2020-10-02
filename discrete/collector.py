@@ -61,7 +61,7 @@ class Collector(object):
                 time.sleep(0.1) # to prevent ran out of input error
                 for i in range(c, ct):
                     t = 'traj_%d.pickle' %(i+1)
-                    print('read actor_%d %s' %(id, t))
+                    # print('read actor_%d %s' %(id, t))
                     with open(join(base, t), 'rb') as f:
                         traj = pickle.load(f)
                         ep_rew.append(sum([t[2] for t in traj]))
