@@ -51,10 +51,12 @@ class JackalEnvDiscrete(gym.Env):
             path = np.load(join(base, 'path_files', 'path_%d.npy' % world_id))
             init_x, init_y = self.path_coord_to_gazebo_coord(*path[0])
             goal_x, goal_y = self.path_coord_to_gazebo_coord(*path[-1])
+            # init_x -= 1
+            # init_y -= 1
             goal_x -= init_x
             goal_y -= (init_y-1)
             self.init_position = [init_x, init_y, np.pi/2]
-            self.goal_position = [goal_x, goal_y, np.pi/2]
+            self.goal_position = [goal_y, -goal_x, 0] # Here is a rotational transformation
 
         self.param_delta = param_delta
         self.param_init = param_init

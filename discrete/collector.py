@@ -44,6 +44,8 @@ class Collector(object):
         # collect happens after policy is updated
         self.update_policy()
         steps = 0
+        ep_rew = []
+        ep_len = []
         while steps < n_step:
             time.sleep(1)
             for id in self.ids:
@@ -62,8 +64,10 @@ class Collector(object):
                     print('read actor_%d %s' %(id, t))
                     with open(join(base, t), 'rb') as f:
                         traj = pickle.load(f)
+                        ep_rew.append(sum([t[2] for t in traj]))
+                        ep_len.append(len(traj))
                         self.buffer_expand(traj)
                         steps += len(traj)
-        return {'n/st': steps}
+        return {'n/st': steps, 'ep_rew': sum(ep_rew)/len(ep_rew), 'ep_len': sum(ep_len)/len(ep_len)}
 
 

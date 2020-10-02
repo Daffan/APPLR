@@ -84,7 +84,7 @@ class BenchMarkingWrapper(gym.Wrapper):
         goal_y -= (init_y-1)
 
         self.init_position = [init_x, init_y, np.pi/2]
-        self.goal_position = [goal_x, goal_y, np.pi/2]
+        self.goal_position = [goal_y, -goal_x, 0]
         self.env.goal_position = self.goal_position
         self.env.init_position = self.init_position
         self.env.gazebo_sim = GazeboSimulation(init_position = self.init_position)
