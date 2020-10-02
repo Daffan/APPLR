@@ -50,17 +50,20 @@ class Collector(object):
                 c = self.ep_count[id]
                 base = join(BASE_PATH, 'actor_%d' %(id))
                 try:
-                    trajs = os.listdir(base)
+                    trajs = sorted(os.listdir(base))
                 except:
                     trajs = []
                     # print('waiting actor %d to be initialized' %(id))
-                self.ep_count[id] = len(trajs)
-                if trajs[c:]:
-                    for t in trajs[c:]:
-                        with open(join(base, t), 'rb') as f:
-                            traj = pickle.load(f)
-                            self.buffer_expand(traj)
-                            steps += len(traj)
+                ct = len(trajs)
+                self.ep_count[id] = ct
+                time.sleep(0.1) # to prevent ran out of input error
+                for i in range(c, ct):
+                    t = 'traj_%d.pickle' %(i+1)
+                    print('read actor_%d %s' %(id, t))
+                    with open(join(base, t), 'rb') as f:
+                        traj = pickle.load(f)
+                        self.buffer_expand(traj)
+                        steps += len(traj)
         return {'n/st': steps}
 
 
