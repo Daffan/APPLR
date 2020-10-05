@@ -11,6 +11,8 @@ import gym
 import numpy as np
 import random
 
+benchmarking_train = [1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 21, 22, 23, 24, 25, 26, 28, 29, 30, 31, 33, 34, 35, 36, 37, 38, 39, 40, 42, 43, 44, 45, 46, 49, 50, 51, 52, 53, 54, 55, 56, 58, 59, 60, 61, 62, 63, 65, 66, 67, 68, 70, 71, 72, 73, 74, 75, 77, 79, 80, 81, 82, 83, 84, 85, 86, 87, 89, 90, 91, 92, 94, 95, 96, 97, 98, 99, 101, 102, 103, 105, 106, 107, 108, 109, 110, 111, 113, 114, 115, 116, 117, 119, 120, 121, 122, 124, 125, 126, 127, 128, 130, 131, 132, 134, 135, 136, 137, 139, 140, 141, 142, 143, 145, 146, 147, 148, 149, 151, 152, 153, 154, 155, 156, 157, 158, 160, 161, 162, 164, 165, 166, 167, 169, 170, 171, 172, 173, 174, 176, 177, 178, 179, 180, 181, 182, 183, 185, 186, 187, 188, 190, 191, 192, 194, 195, 196, 197, 198, 199, 200, 202, 203, 204, 205, 206, 207, 209, 210, 211, 212, 213, 215, 216, 217, 219, 220, 221, 222, 223, 224, 225, 227, 228, 230, 231, 232, 233, 234, 235, 236, 238, 239, 241, 242, 243, 244, 245, 247, 248, 249, 250, 251, 252, 253, 254, 255, 257, 259, 260, 261, 262, 263, 264, 266, 267, 268, 269, 271, 272, 273, 274, 275, 276, 278, 279, 280, 281, 282, 283, 285, 286, 287, 288, 289, 291, 292, 293, 295, 296, 297, 298, 299]
+
 BASE_PATH = '/tmp/buffer'
 
 def init_actor(id):
@@ -24,9 +26,23 @@ def init_actor(id):
     return config
 
 class DuelingDQN(nn.Module):
-    def __init__(self, state_shape, action_shape, hidden_layer = [128, 128]):
+    def __init__(self, state_shape, action_shape, hidden_layer = [64, 64], cnn = True):
         super().__init__()
-        layers = [np.prod(state_shape)] + hidden_layer
+        if cnn:
+            self.feature = nn.Sequential(
+                nn.Conv1d(in_channels=1, out_channels=32, kernel_size=5, stride=2),
+                nn.ReLU(), nn.MaxPool1d(kernel_size = 5),
+                nn.Conv1d(in_channels=32, out_channels=64, kernel_size=5, stride=2),
+                nn.ReLU(), nn.MaxPool1d(kernel_size = 5),
+                nn.Conv1d(in_channels=64, out_channels=64, kernel_size=1),
+                nn.ReLU(), nn.AvgPool1d(6)
+                )
+            feature_shape = 70
+        else:
+            self.feature = lambda x: x.view(x.shape[0], -1)
+            feature_shape = 727
+
+        layers = [np.prod(feature_shape)] + hidden_layer
         self.value = []
         self.advantage = []
         for i, o in zip(layers[:-1], layers[1:]):
@@ -44,8 +60,14 @@ class DuelingDQN(nn.Module):
         if not isinstance(obs, torch.Tensor):
             obs = torch.tensor(obs, dtype=torch.float)
         batch = obs.shape[0]
-        advantage = self.advantage(obs.view(batch, -1))
-        value = self.value(obs.view(batch, -1))
+        laser = obs.view(batch, 1, -1)[:,:,:721]
+        params = obs.view(batch, -1)[:, 721:]
+
+        embedding = self.feature(laser).view(batch, -1)
+        feature = torch.cat((embedding, params), dim = 1)
+
+        advantage = self.advantage(feature)
+        value = self.value(feature)
         logits = value + advantage - advantage.mean(1, keepdim=True)
         return logits, state
 
@@ -73,6 +95,7 @@ def main(id):
 
     config = init_actor(id)
     env_config = config['env_config']
+    env_config['world_name'] = 'Benchmarking/train/world_%d.world' %(benchmarking_train[id])
     wrapper_config = config['wrapper_config']
     training_config = config['training_config']
     wrapper_dict = jackal_navi_envs.jackal_env_wrapper.wrapper_dict
@@ -80,7 +103,7 @@ def main(id):
 
     state_shape = env.observation_space.shape or env.observation_space.n
     action_shape = env.action_space.shape or env.action_space.n
-    model = DuelingDQN(state_shape, action_shape, hidden_layer = training_config['hidden_layer'])
+    model = DuelingDQN(state_shape, action_shape, hidden_layer = training_config['hidden_layer'], cnn = training_config['cnn'])
 
     ep = 0
     while True:
@@ -89,12 +112,20 @@ def main(id):
         traj = []
         model, eps = load_model(model)
         done = False
+        count = 0
         while not done:
             p = random.random()
-            actions = np.array(model(torch.tensor([obs]).float())[0].detach().cpu())
-            action = np.argmax(actions.reshape(-1)) if p>eps else random.choice(list(range(len(actions))))
+            obs = torch.tensor([obs]).float()
+            actions = model(obs)[0].detach().numpy()[0]
+            if p>eps:
+                action = np.argmax(actions.reshape(-1))
+            else:
+                action = random.choice(list(range(len(actions))))
             obs, rew, done, info = env.step(action)
+            count += 1
+            # print('current step: %d, X position: %f, rew: %f' %(count, info['X'], rew), end = '\r')
             traj.append([obs, action, rew, done, info])
+        # print('count: %d, rew: %f' %(count, rew))
         write_buffer(traj, ep, id)
 
 if __name__ == '__main__':

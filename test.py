@@ -5,16 +5,25 @@ import gym
 def main():
     print('test a single episode of the environment')
 
-    env = SequentialWorldWrapper(gym.make('jackal_discrete-v0'))
+    env = SequentialWorldWrapper(gym.make('jackal_discrete-v0', verbose = 'true', param_init = [0.5, 1.57, 6, 20, 0.75, 1]))
 
     env.reset()
     done  = False
     count = 0
 
-    while not done:
+    while True:
+        import random
+        action = random.choice(list(range(65)))
         count += 1
         obs, rew, done, info = env.step(64)
-        print('current step: %d, X position: %f' %(count, info['X']))
+        Y = env.navi_stack.robot_config.Y
+        X = env.navi_stack.robot_config.X
+        p = env.gazebo_sim.get_model_state().pose.position
+        print('current step: %d, X position: %f, %f, Y position: %f, %f' %(count, p.x, X, p.y, Y))
+        if done:
+            env.reset()
+            print(count, rew)
+            count = 0
 
     env.close()
 

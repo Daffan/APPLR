@@ -33,7 +33,7 @@ class JackalEnvDiscrete(gym.Env):
                 init_position = [-8, 0, 0], goal_position = [54, 0, 0], max_step = 600, time_step = 1, laser_clip = 4,
                 param_delta = [0.2, 0.3, 1, 2, 0.2, 0.2], param_init = [0.5, 1.57, 6, 20, 0.75, 1],
                 param_list = ['max_vel_x', 'max_vel_theta', 'vx_samples', 'vtheta_samples', 'path_distance_bias', 'goal_distance_bias'],
-                init_world = True):
+                init_world = True, verbose = 'true'):
         gym.Env.__init__(self)
 
         self.world_name = world_name
@@ -52,11 +52,11 @@ class JackalEnvDiscrete(gym.Env):
             init_x, init_y = self.path_coord_to_gazebo_coord(*path[0])
             goal_x, goal_y = self.path_coord_to_gazebo_coord(*path[-1])
             # init_x -= 1
-            # init_y -= 1
+            init_y -= 1
             goal_x -= init_x
-            goal_y -= (init_y-1)
+            goal_y -= (init_y-5)
             self.init_position = [init_x, init_y, np.pi/2]
-            self.goal_position = [goal_y, -goal_x, 0] # Here is a rotational transformation
+            self.goal_position = [goal_y, -goal_x, 0] # Here is a rotational transformation only in the container
 
         self.param_delta = param_delta
         self.param_init = param_init
@@ -74,7 +74,8 @@ class JackalEnvDiscrete(gym.Env):
                                                     'world_name:=' + world_name,
                                                     'gui:=' + gui,
                                                     'VLP16:=' + VLP16,
-                                                    'camera:=' + camera
+                                                    'camera:=' + camera,
+                                                    'verbose:=' + verbose
                                                     ])
             time.sleep(10)
 
@@ -140,7 +141,7 @@ class JackalEnvDiscrete(gym.Env):
         else:
             done = False
 
-        return state, -1, done, {'params': params}
+        return state, -self.time_step, done, {'params': params}
 
     def _set_param(self, param_name, param):
         rospy.set_param(param_name, float(param))
