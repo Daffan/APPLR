@@ -19,7 +19,7 @@ def main():
         Y = env.navi_stack.robot_config.Y
         X = env.navi_stack.robot_config.X
         p = env.gazebo_sim.get_model_state().pose.position
-        print('current step: %d, X position: %f, %f, Y position: %f, %f' %(count, p.x, X, p.y, Y))
+        print('current step: %d, X position: %f, %f, Y position: %f, %f, rew: %f' %(count, p.x, X, p.y, Y , rew))
         if done:
             env.reset()
             print(count, rew)

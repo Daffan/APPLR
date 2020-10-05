@@ -185,7 +185,7 @@ class NavigationStack():
 
     def punish_rewrad(self):
         try:
-            rew =  self.robot_config.bad_vel / self.robot_config.vel_counter * 10.
+            rew =  self.robot_config.bad_vel
         except:
             rew = 0
         self.robot_config.bad_vel = 0

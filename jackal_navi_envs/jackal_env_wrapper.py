@@ -89,7 +89,7 @@ class BenchMarkingWrapper(gym.Wrapper):
 
     def reset(self):
         obs = self.env.reset()
-        self.env._set_param('/Y', self.env.gazebo_sim.get_model_state().pose.position.x)
+        self.env._set_param('/Y', self.env.gazebo_sim.get_model_state().pose.position.y)
         self.rp = [] # sequence of robot Y position
         return obs
 
