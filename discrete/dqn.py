@@ -91,7 +91,7 @@ class DuelingDQN(nn.Module):
             feature_shape = 70
         else:
             self.feature = lambda x: x.view(x.shape[0], -1)
-            feature_shape = 727
+            feature_shape = state_shape
 
         layers = [np.prod(feature_shape)] + hidden_layer
         self.value = []
