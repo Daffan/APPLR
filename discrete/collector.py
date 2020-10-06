@@ -5,7 +5,7 @@ import torch
 import time
 import pickle
 
-BASE_PATH = '/tmp/buffer'
+BASE_PATH = '/u/zifan/buffer'
 class Collector(object):
 
     def __init__(self, policy, env, replaybuffer):
@@ -46,10 +46,10 @@ class Collector(object):
         steps = 0
         ep_rew = []
         ep_len = []
+        succeed = []
         while steps < n_step:
-            time.sleep(1)
             for id in self.ids:
-                c = self.ep_count[id]
+                # c = self.ep_count[id]
                 base = join(BASE_PATH, 'actor_%d' %(id))
                 try:
                     trajs = sorted(os.listdir(base))
@@ -57,17 +57,19 @@ class Collector(object):
                     trajs = []
                     # print('waiting actor %d to be initialized' %(id))
                 ct = len(trajs)
-                self.ep_count[id] = ct
+                # self.ep_count[id] = ct
                 time.sleep(0.1) # to prevent ran out of input error
-                for i in range(c, ct):
-                    t = 'traj_%d.pickle' %(i+1)
+                for t in trajs:
+                    # t = 'traj_%d.pickle' %(i+1)
                     # print('read actor_%d %s' %(id, t))
                     with open(join(base, t), 'rb') as f:
                         traj = pickle.load(f)
                         ep_rew.append(sum([t[2] for t in traj]))
                         ep_len.append(len(traj))
+                        succeed.append(int(traj[-1][-1]['succeed']))
                         self.buffer_expand(traj)
                         steps += len(traj)
-        return {'n/st': steps, 'ep_rew': sum(ep_rew)/len(ep_rew), 'ep_len': sum(ep_len)/len(ep_len)}
+                    os.remove(join(base, t))
+        return {'n/st': steps, 'ep_rew': sum(ep_rew)/len(ep_rew), 'ep_len': sum(ep_len)/len(ep_len), 'succeed': sum(succeed)/len(succeed)}
 
 

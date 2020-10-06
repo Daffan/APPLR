@@ -1,11 +1,13 @@
 import jackal_navi_envs
-from jackal_navi_envs.jackal_env_wrapper import SequentialWorldWrapper
+from jackal_navi_envs.jackal_env_wrapper import SequentialWorldWrapper, BenchMarkingWrapper
 import gym
 
 def main():
     print('test a single episode of the environment')
 
-    env = SequentialWorldWrapper(gym.make('jackal_discrete-v0', verbose = 'true', param_init = [0.5, 1.57, 6, 20, 0.75, 1]))
+    env = BenchMarkingWrapper(gym.make('jackal_discrete-v0', verbose = 'true',\
+                                          world_name = 'Benchmarking/train/world_299.world',\
+                                          param_init = [0.2, 1.57, 6, 20, 0.75, 1]))
 
     env.reset()
     done  = False

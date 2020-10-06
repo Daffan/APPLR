@@ -105,7 +105,7 @@ class Robot_config():
 
     def vel_monitor(self, msg):
         vx = msg.linear.x
-        if vx < 0.1:
+        if vx < 0:
             self.bad_vel += 1
         self.vel_counter += 1
 

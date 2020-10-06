@@ -136,12 +136,12 @@ class JackalEnvDiscrete(gym.Env):
         gpl = np.array(self.goal_position[:2])
         self.gp_len = np.sqrt(np.sum((pr-gpl)**2))
 
-        if self.gp_len < 0.4 or self._get_param('/step_count') >= self.max_step:
+        if self.gp_len < 0.4 or self.step_count >= self.max_step:
             done = True
         else:
             done = False
 
-        return state, -self.time_step, done, {'params': params}
+        return state, -self.time_step, done, {'params': params, 'succeed': self.step_count < self.max_step}
 
     def _set_param(self, param_name, param):
         rospy.set_param(param_name, float(param))
@@ -167,8 +167,7 @@ class JackalEnvDiscrete(gym.Env):
         else: # the last action is pass without doing anything
             pass
 
-        step_count = self._get_param('/step_count')
-        self._set_param('/step_count', step_count+1)
+        self.step_count+=1
 
         # Unpause the world
         self.gazebo_sim.unpause()
@@ -187,7 +186,7 @@ class JackalEnvDiscrete(gym.Env):
 
     def reset(self):
 
-        self._set_param('/step_count', 0)
+        self.step_count=0
         # reset robot in odom frame clear_costmap
         self.navi_stack.reset_robot_in_odom()
         # Resets the state of the environment and returns an initial observation.
