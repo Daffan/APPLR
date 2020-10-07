@@ -162,8 +162,8 @@ class DQNPolicy(BasePolicy):
         q = self(batch, eps=0.).logits
         q = q[np.arange(len(q)), batch.act]
         r = to_torch_as(batch.returns, q).flatten()
-        # c = torch.nn.SmoothL1Loss(reduction = 'none')
-        c = lambda r, q: (r-q).pow(2)
+        c = torch.nn.SmoothL1Loss(reduction = 'none')
+        # c = lambda r, q: (r-q).pow(2)
         td = c(r, q)
         loss = (td * weight).mean()
         batch.weight = r - q  # prio-buffer

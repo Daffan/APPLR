@@ -63,8 +63,8 @@ if not config['use_container']:
 else:
     train_envs = config
     Collector = Fake_Collector
-    state_shape = 727
-    action_shape = 65
+    state_shape = 727 if config['env'] == 'jackal' else 4
+    action_shape = 65 if config['env'] == 'jackal' else 2
 
 # config random seed
 np.random.seed(config['seed'])
