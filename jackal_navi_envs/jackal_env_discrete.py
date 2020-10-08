@@ -81,7 +81,7 @@ class JackalEnvDiscrete(gym.Env):
 
 
         rospy.set_param('/use_sim_time', True)
-        rospy.init_node('gym', anonymous=True)
+        rospy.init_node('gym', anonymous=True, log_level=rospy.FATAL)
 
         self.gazebo_sim = GazeboSimulation(init_position = self.init_position)
         self.navi_stack = NavigationStack(goal_position = self.goal_position)

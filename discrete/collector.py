@@ -58,18 +58,20 @@ class Collector(object):
                     # print('waiting actor %d to be initialized' %(id))
                 ct = len(trajs)
                 # self.ep_count[id] = ct
-                time.sleep(0.1) # to prevent ran out of input error
                 for t in trajs:
                     # t = 'traj_%d.pickle' %(i+1)
                     # print('read actor_%d %s' %(id, t))
-                    with open(join(base, t), 'rb') as f:
-                        traj = pickle.load(f)
-                        ep_rew.append(sum([t[2] for t in traj]))
-                        ep_len.append(len(traj))
-                        succeed.append(int(traj[-1][-1]['succeed']))
-                        self.buffer_expand(traj)
-                        steps += len(traj)
-                    os.remove(join(base, t))
-        return {'n/st': steps, 'ep_rew': sum(ep_rew)/len(ep_rew), 'ep_len': sum(ep_len)/len(ep_len), 'succeed': sum(succeed)/len(succeed)}
+                    try:
+                        with open(join(base, t), 'rb') as f:
+                            traj = pickle.load(f)
+                            ep_rew.append(sum([t[2] for t in traj]))
+                            ep_len.append(len(traj))
+                            succeed.append(int(traj[-1][-1]['succeed']))
+                            self.buffer_expand(traj)
+                            steps += len(traj)
+                        os.remove(join(base, t))
+                    except:
+                        pass
+        return {'n/st': n_step, 'n/stt': steps, 'ep_rew': sum(ep_rew)/len(ep_rew), 'ep_len': sum(ep_len)/len(ep_len), 'succeed': sum(succeed)/len(succeed)}
 
 

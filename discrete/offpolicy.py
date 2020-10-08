@@ -68,9 +68,9 @@ def offpolicy_trainer(
                 assert train_collector.policy == policy
                 result = train_collector.collect(n_step=collect_per_step)
                 data = {}
+                global_step += collect_per_step
                 for i in range(update_per_step * min(
                         result['n/st'] // collect_per_step, t.total - t.n)):
-                    global_step += collect_per_step
                     losses = policy.update(batch_size, train_collector.buffer)
                     for k in result.keys():
                         data[k] = f'{result[k]:.2f}'

@@ -140,6 +140,13 @@ policy.set_eps(1)
 train_collector = Collector(policy, train_envs, buf)
 train_collector.collect(n_step=training_config['pre_collect'])
 
+def delect_log():
+    for dirname, dirnames, filenames in os.walk('/u/zifan/.ros/log'):
+        for filename in filenames:
+            p = join(dirname, filename)
+            if p.endswith('.log') and dirname != '/u/zifan/.ros/log':
+                os.remove(p)
+
 train_fn =lambda e: [policy.set_eps(max(0.05, 1-(e-1)/training_config['epoch']/training_config['exploration_ratio'])),
                     torch.save(policy.state_dict(), os.path.join(save_path, 'policy_%d.pth' %(e)))]
 

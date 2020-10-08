@@ -31,7 +31,7 @@ seed = args.seed
 avg = args.avg
 
 config_path = model_path + '/config.json'
-model_path = model_path + '/policy_10.pth'
+model_path = model_path + '/policy_16.pth'
 
 with open(config_path, 'rb') as f:
     config = json.load(f)
@@ -44,9 +44,23 @@ if record:
     env_config['world_name'] = env_config['world_name'].split('.')[0] + '_camera' + '.world'
 
 class DuelingDQN(nn.Module):
-    def __init__(self, state_shape, action_shape, hidden_layer = [128, 128]):
+    def __init__(self, state_shape, action_shape, hidden_layer = [64, 64], cnn = True):
         super().__init__()
-        layers = [np.prod(state_shape)] + hidden_layer
+        if cnn:
+            self.feature = nn.Sequential(
+                nn.Conv1d(in_channels=1, out_channels=32, kernel_size=5, stride=2),
+                nn.ReLU(), nn.MaxPool1d(kernel_size = 5),
+                nn.Conv1d(in_channels=32, out_channels=64, kernel_size=5, stride=2),
+                nn.ReLU(), nn.MaxPool1d(kernel_size = 5),
+                nn.Conv1d(in_channels=64, out_channels=64, kernel_size=1),
+                nn.ReLU(), nn.AvgPool1d(6)
+                )
+            feature_shape = 70
+        else:
+            self.feature = lambda x: x.view(x.shape[0], -1)
+            feature_shape = state_shape
+
+        layers = [np.prod(feature_shape)] + hidden_layer
         self.value = []
         self.advantage = []
         for i, o in zip(layers[:-1], layers[1:]):
@@ -64,8 +78,14 @@ class DuelingDQN(nn.Module):
         if not isinstance(obs, torch.Tensor):
             obs = torch.tensor(obs, dtype=torch.float)
         batch = obs.shape[0]
-        advantage = self.advantage(obs.view(batch, -1))
-        value = self.value(obs.view(batch, -1))
+        laser = obs.view(batch, 1, -1)[:,:,:721]
+        params = obs.view(batch, -1)[:, 721:]
+
+        embedding = self.feature(laser).view(batch, -1)
+        feature = torch.cat((embedding, params), dim = 1)
+
+        advantage = self.advantage(feature)
+        value = self.value(feature)
         logits = value + advantage - advantage.mean(1, keepdim=True)
         return logits, state
 
@@ -78,7 +98,7 @@ for key in state_dict_raw.keys():
 env = wrapper_dict[wrapper_config['wrapper']](gym.make('jackal_discrete-v0', **env_config), **wrapper_config['wrapper_args'])
 state_shape = env.observation_space.shape or env.observation_space.n
 action_shape = env.action_space.shape or env.action_space.n
-model = DuelingDQN(state_shape, action_shape, hidden_layer = training_config['hidden_layer'])
+model = DuelingDQN(state_shape, action_shape, hidden_layer = training_config['hidden_layer'], cnn = training_config['cnn'])
 model.load_state_dict(state_dict)
 model = model.float()
 
@@ -103,10 +123,11 @@ for i in range(avg):
     obs = env.reset()
     done = False
     while not done:
-        actions = np.array(model(torch.tensor([obs]).float())[0].detach().cpu())
+        obs = torch.tensor([obs]).float()
+        actions = model(obs)[0].detach().numpy()[0]
         action = np.argmax(actions.reshape(-1))
         obs, reward, done, info = env.step(action)
-        print('current step: %d, X position: %f, reward: %f' %(count, info['X'], reward))
+        print('current step: %d, X position: %f, Y position: %f, rew: %f' %(count, info['X'], info['Y'] , reward))
         print(info['params'])
         params = np.array(info['params'])
         pms = np.append(pms, np.expand_dims(params, -1), -1)

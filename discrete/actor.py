@@ -39,7 +39,7 @@ class DuelingDQN(nn.Module):
                 nn.Conv1d(in_channels=64, out_channels=64, kernel_size=1),
                 nn.ReLU(), nn.AvgPool1d(6)
                 )
-            feature_shape = state_shape
+            feature_shape = 70
         else:
             self.feature = lambda x: x.view(x.shape[0], -1)
             feature_shape = state_shape
@@ -103,8 +103,9 @@ def main(id):
 
     config = init_actor(id)
     env_config = config['env_config']
-    env_config['world_name'] = 'Benchmarking/train/world_%d.world' %(benchmarking_train[id])
-    assert os.path.exists('/jackal_ws/src/jackal_helper/worlds/Benchmarking/train/world_%d.world' %(benchmarking_train[id]))
+    if env_config['world_name'] != "sequential_applr_testbed.world":
+        env_config['world_name'] = 'Benchmarking/train/world_%d.world' %(benchmarking_train[id])
+        assert os.path.exists('/jackal_ws/src/jackal_helper/worlds/Benchmarking/train/world_%d.world' %(benchmarking_train[id]))
     wrapper_config = config['wrapper_config']
     training_config = config['training_config']
     wrapper_dict = jackal_navi_envs.jackal_env_wrapper.wrapper_dict
@@ -121,9 +122,9 @@ def main(id):
         obs = env.reset()
         ep += 1
         traj = []
-        model, eps = load_model(model)
         done = False
         count = 0
+        model, eps = load_model(model)
         while not done:
             p = random.random()
             obs = torch.tensor([obs]).float()
@@ -134,7 +135,7 @@ def main(id):
                 action = random.choice(list(range(len(actions))))
             obs_new, rew, done, info = env.step(action)
             count += 1
-            # print('current step: %d, X position: %f, Y position: %f, rew: %f, succeed: %d' %(count, info['X'], info['Y'], rew, info['succeed']))
+            print('current step: %d, X position: %f, Y position: %f, rew: %f, succeed: %d' %(count, info['X'], info['Y'], rew, info['succeed']), end = '\r')
             traj.append([obs, action, rew, done, info])
             obs = obs_new
         # print('count: %d, rew: %f' %(count, rew))
