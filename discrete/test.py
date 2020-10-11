@@ -3,6 +3,7 @@ import sys
 sys.path.append(dirname(dirname(abspath(__file__))))
 import jackal_navi_envs
 from jackal_navi_envs.jackal_env_wrapper import *
+from .dqn import DuelingDQN
 
 import gym
 import numpy
@@ -13,14 +14,19 @@ import argparse
 from datetime import datetime
 import time
 import os
+from os.path import join
 import json
 
 parser = argparse.ArgumentParser(description = 'Jackal navigation simulation')
 parser.add_argument('--model', dest = 'model', type = str, default = 'results/DQN_testbed_2020_08_30_10_58', help = 'path to the saved model and configuration')
+parser.add_argument('--policy', dest = 'policy', type = str, default = 'policy_26.pth')
 parser.add_argument('--record', dest='record', action='store_true')
 parser.add_argument('--gui', dest='gui', action='store_true')
 parser.add_argument('--seed', dest='seed', type = int, default = 43)
 parser.add_argument('--avg', dest='avg', type = int, default = 2)
+parser.add_argument('--default', dest='default', action='store_true')
+parser.add_argument('--world', dest = 'world', type = str, default = 'Benchmarking/train/world_1.world')
+
 
 
 args = parser.parse_args()
@@ -29,33 +35,33 @@ record = args.record
 gui = 'true' if args.gui else 'false'
 seed = args.seed
 avg = args.avg
+policy = args.policy
+world = args.world
+default = args.default
 
-config_path = model_path + '/config.json'
-model_path = model_path + '/policy_16.pth'
+config_path = join(model_path, 'config.json')
+model_path = join(model_path, policy)
 
 with open(config_path, 'rb') as f:
     config = json.load(f)
 
 env_config = config['env_config']
+env_config['world_name'] = world
+env_config['gui'] = gui
 wrapper_config = config['wrapper_config']
 training_config = config['training_config']
 
 if record:
     env_config['world_name'] = env_config['world_name'].split('.')[0] + '_camera' + '.world'
-
+'''
 class DuelingDQN(nn.Module):
-    def __init__(self, state_shape, action_shape, hidden_layer = [64, 64], cnn = True):
+    def __init__(self, state_shape, action_shape, hidden_layer = [64, 64], cnn = True, feature_layer = [256]):
         super().__init__()
         if cnn:
             self.feature = nn.Sequential(
-                nn.Conv1d(in_channels=1, out_channels=32, kernel_size=5, stride=2),
-                nn.ReLU(), nn.MaxPool1d(kernel_size = 5),
-                nn.Conv1d(in_channels=32, out_channels=64, kernel_size=5, stride=2),
-                nn.ReLU(), nn.MaxPool1d(kernel_size = 5),
-                nn.Conv1d(in_channels=64, out_channels=64, kernel_size=1),
-                nn.ReLU(), nn.AvgPool1d(6)
+                nn.Linear(720, feature_layer[0]), nn.ReLU(inplace=True)
                 )
-            feature_shape = 70
+            feature_shape = feature_layer[0] + 7
         else:
             self.feature = lambda x: x.view(x.shape[0], -1)
             feature_shape = state_shape
@@ -78,8 +84,8 @@ class DuelingDQN(nn.Module):
         if not isinstance(obs, torch.Tensor):
             obs = torch.tensor(obs, dtype=torch.float)
         batch = obs.shape[0]
-        laser = obs.view(batch, 1, -1)[:,:,:721]
-        params = obs.view(batch, -1)[:, 721:]
+        laser = obs.view(batch, 1, -1)[:,:,:720]
+        params = obs.view(batch, -1)[:, 720:]
 
         embedding = self.feature(laser).view(batch, -1)
         feature = torch.cat((embedding, params), dim = 1)
@@ -88,7 +94,7 @@ class DuelingDQN(nn.Module):
         value = self.value(feature)
         logits = value + advantage - advantage.mean(1, keepdim=True)
         return logits, state
-
+'''
 state_dict = {}
 state_dict_raw = torch.load(model_path)
 for key in state_dict_raw.keys():
@@ -126,6 +132,8 @@ for i in range(avg):
         obs = torch.tensor([obs]).float()
         actions = model(obs)[0].detach().numpy()[0]
         action = np.argmax(actions.reshape(-1))
+        if default:
+            action = 64
         obs, reward, done, info = env.step(action)
         print('current step: %d, X position: %f, Y position: %f, rew: %f' %(count, info['X'], info['Y'] , reward))
         print(info['params'])

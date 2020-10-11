@@ -5,7 +5,7 @@ from os.path import join, dirname, abspath, exists
 import sys
 sys.path.append(dirname(dirname(abspath(__file__))))
 import jackal_navi_envs
-from policy import DuelingDQN
+from .dqn import DuelingDQN
 from torch import nn
 import torch
 import gym
@@ -13,11 +13,10 @@ import numpy as np
 import random
 import time
 random.seed(43)
-benchmarking_train = [1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 21, 22, 23, 24, 25, 26, 28, 29, 30, 31, 33, 34, 35, 36, 37, 38, 39, 40, 42, 43, 44, 45, 46, 49, 50, 51, 52, 53, 54, 55, 56, 58, 59, 60, 61, 62, 63, 65, 66, 67, 68, 70, 71, 72, 73, 74, 75, 77, 79, 80, 81, 82, 83, 84, 85, 86, 87, 89, 90, 91, 92, 94, 95, 96, 97, 98, 99, 101, 102, 103, 105, 106, 107, 108, 109, 110, 111, 113, 114, 115, 116, 117, 119, 120, 121, 122, 124, 125, 126, 127, 128, 130, 131, 132, 134, 135, 136, 137, 139, 140, 141, 142, 143, 145, 146, 147, 148, 149, 151, 152, 153, 154, 155, 156, 157, 158, 160, 161, 162, 164, 165, 166, 167, 169, 170, 171, 172, 173, 174, 176, 177, 178, 179, 180, 181, 182, 183, 185, 186, 187, 188, 190, 191, 192, 194, 195, 196, 197, 198, 199, 200, 202, 203, 204, 205, 206, 207, 209, 210, 211, 212, 213, 215, 216, 217, 219, 220, 221, 222, 223, 224, 225, 227, 228, 230, 231, 232, 233, 234, 235, 236, 238, 239, 241, 242, 243, 244, 245, 247, 248, 249, 250, 251, 252, 253, 254, 255, 257, 259, 260, 261, 262, 263, 264, 266, 267, 268, 269, 271, 272, 273, 274, 275, 276, 278, 279, 280, 281, 282, 283, 285, 286, 287, 288, 289, 291, 292, 293, 295, 296, 297, 298, 299]
-# random.shuffle(benchmarking_train)
-benchmarking_train.reverse()
+benchmarking_test = [0, 8, 17, 19, 27, 32, 41, 47, 48, 57, 64, 69, 76, 78, 88, 93, 100, 104, 112, 118, 123, 129, 133, 138, 144, 150, 159, 163, 168, 175, 184, 189, 193, 201, 208, 214, 218, 226, 229, 237, 240, 246, 256, 258, 265, 270, 277, 284, 290, 294]
+random.shuffle(benchmarking_test)
 
-BASE_PATH = '/u/zifan/buffer'
+BASE_PATH = '/u/zifan/APPLR/buffer_test'
 
 def init_actor(id):
     assert os.path.exists(BASE_PATH)
@@ -30,13 +29,18 @@ def init_actor(id):
     return config
 '''
 class DuelingDQN(nn.Module):
-    def __init__(self, state_shape, action_shape, hidden_layer = [64, 64], cnn = True, feature_layer = [256]):
+    def __init__(self, state_shape, action_shape, hidden_layer = [64, 64], cnn = True):
         super().__init__()
         if cnn:
             self.feature = nn.Sequential(
-                nn.Linear(720, feature_layer[0]), nn.ReLU(inplace=True)
+                nn.Conv1d(in_channels=1, out_channels=32, kernel_size=5, stride=2),
+                nn.ReLU(), nn.MaxPool1d(kernel_size = 5),
+                nn.Conv1d(in_channels=32, out_channels=64, kernel_size=5, stride=2),
+                nn.ReLU(), nn.MaxPool1d(kernel_size = 5),
+                nn.Conv1d(in_channels=64, out_channels=64, kernel_size=1),
+                nn.ReLU(), nn.AvgPool1d(6)
                 )
-            feature_shape = feature_layer[0] + 7
+            feature_shape = 70
         else:
             self.feature = lambda x: x.view(x.shape[0], -1)
             feature_shape = state_shape
@@ -59,8 +63,8 @@ class DuelingDQN(nn.Module):
         if not isinstance(obs, torch.Tensor):
             obs = torch.tensor(obs, dtype=torch.float)
         batch = obs.shape[0]
-        laser = obs.view(batch, 1, -1)[:,:,:720]
-        params = obs.view(batch, -1)[:, 720:]
+        laser = obs.view(batch, 1, -1)[:,:,:721]
+        params = obs.view(batch, -1)[:, 721:]
 
         embedding = self.feature(laser).view(batch, -1)
         feature = torch.cat((embedding, params), dim = 1)
@@ -96,13 +100,13 @@ def write_buffer(traj, ep, id):
     with open(join(BASE_PATH, 'actor_%s' %(str(id)), 'traj_%d.pickle' %(ep)), 'wb') as f:
         pickle.dump(traj, f)
 
-def main(id):
+def main(id, avg, default):
 
     config = init_actor(id)
     env_config = config['env_config']
     if env_config['world_name'] != "sequential_applr_testbed.world":
-        env_config['world_name'] = 'Benchmarking/train/world_%d.world' %(benchmarking_train[id])
-        assert os.path.exists('/jackal_ws/src/jackal_helper/worlds/Benchmarking/train/world_%d.world' %(benchmarking_train[id]))
+        env_config['world_name'] = 'Benchmarking/test/world_%d.world' %(benchmarking_test[id])
+        assert os.path.exists('/jackal_ws/src/jackal_helper/worlds/Benchmarking/test/world_%d.world' %(benchmarking_test[id]))
     wrapper_config = config['wrapper_config']
     training_config = config['training_config']
     wrapper_dict = jackal_navi_envs.jackal_env_wrapper.wrapper_dict
@@ -115,7 +119,7 @@ def main(id):
     model = DuelingDQN(state_shape, action_shape, hidden_layer = training_config['hidden_layer'], cnn = training_config['cnn'])
 
     ep = 0
-    while True:
+    for _ in range(avg):
         obs = env.reset()
         ep += 1
         traj = []
@@ -130,6 +134,8 @@ def main(id):
                 action = np.argmax(actions.reshape(-1))
             else:
                 action = random.choice(list(range(len(actions))))
+            if default:
+                action = list(range(len(actions)))[-1] # Keep the default parameters unchanged
             obs_new, rew, done, info = env.step(action)
             count += 1
             # print('current step: %d, X position: %f, Y position: %f, rew: %f, succeed: %d' %(count, info['X'], info['Y'], rew, info['succeed']), end = '\r')
@@ -137,10 +143,16 @@ def main(id):
             obs = obs_new
         # print('count: %d, rew: %f' %(count, rew))
         write_buffer(traj, ep, id)
+    env.close()
 
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description = 'start an actor')
     parser.add_argument('--id', dest='actor_id', type = int, default = 1)
+    parser.add_argument('--avg', dest='avg', type = int, default = 3)
+    parser.add_argument('--default', dest='default', type = bool, default = False)
+
     id = parser.parse_args().actor_id
-    main(id)
+    default = parser.parse_args().default
+    avg = parser.parse_args().avg
+    main(id, avg, default)

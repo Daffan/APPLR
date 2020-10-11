@@ -1,5 +1,7 @@
 import time
 import tqdm
+import numpy as np
+import collections
 from torch.utils.tensorboard import SummaryWriter
 from typing import Dict, List, Union, Callable, Optional
 
@@ -64,9 +66,11 @@ def offpolicy_trainer(
             train_fn(epoch)
         with tqdm.tqdm(total=step_per_epoch, desc=f'Epoch #{epoch}',
                        **tqdm_config) as t:
+            results = collections.deque(maxlen=10)
             while t.n < t.total:
                 assert train_collector.policy == policy
                 result = train_collector.collect(n_step=collect_per_step)
+                results.extend([result])
                 data = {}
                 global_step += collect_per_step
                 for i in range(update_per_step * min(
@@ -75,7 +79,7 @@ def offpolicy_trainer(
                     for k in result.keys():
                         data[k] = f'{result[k]:.2f}'
                         if writer and global_step % log_interval == 0:
-                            writer.add_scalar('train/' + k, result[k],
+                            writer.add_scalar('train/' + k, np.mean([r[k] for r in results]),
                                               global_step=global_step)
                     for k in losses.keys():
                         if stat.get(k) is None:

@@ -14,7 +14,7 @@ from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 
 from tianshou.env import SubprocVectorEnv, DummyVectorEnv
-from policy import DQNPolicy
+from policy import DQNPolicy, DuelingDQN
 from tianshou.data import Collector, ReplayBuffer, PrioritizedReplayBuffer
 from collector import Collector as Fake_Collector
 from offpolicy import offpolicy_trainer
@@ -63,8 +63,8 @@ if not config['use_container']:
 else:
     train_envs = config
     Collector = Fake_Collector
-    state_shape = 727 if config['env'] == 'jackal' else 4
-    action_shape = 65 if config['env'] == 'jackal' else 2
+    state_shape = 721+len(config['env_config']['param_list']) if config['env'] == 'jackal' else 4
+    action_shape = len(config['env_config']['param_list'])**2+1 if config['env'] == 'jackal' else 2
 
 # config random seed
 np.random.seed(config['seed'])
@@ -75,20 +75,15 @@ if not config['use_container']:
 net = Net(training_config['layer_num'], state_shape, action_shape, config['device']).to(config['device'])
 optim = torch.optim.Adam(net.parameters(), lr=training_config['learning_rate'])
 '''
-
+'''
 class DuelingDQN(nn.Module):
-    def __init__(self, state_shape, action_shape, hidden_layer = [64, 64], cnn = True):
+    def __init__(self, state_shape, action_shape, hidden_layer = [64, 64], cnn = True, feature_layer = [256]):
         super().__init__()
         if cnn:
             self.feature = nn.Sequential(
-                nn.Conv1d(in_channels=1, out_channels=32, kernel_size=5, stride=2),
-                nn.ReLU(), nn.MaxPool1d(kernel_size = 5),
-                nn.Conv1d(in_channels=32, out_channels=64, kernel_size=5, stride=2),
-                nn.ReLU(), nn.MaxPool1d(kernel_size = 5),
-                nn.Conv1d(in_channels=64, out_channels=64, kernel_size=1),
-                nn.ReLU(), nn.AvgPool1d(6)
+                nn.Linear(720, feature_layer[0]), nn.ReLU(inplace=True)
                 )
-            feature_shape = 70
+            feature_shape = feature_layer[0] + int(np.log2(action_shape-1))+1
         else:
             self.feature = lambda x: x.view(x.shape[0], -1)
             feature_shape = state_shape
@@ -111,8 +106,8 @@ class DuelingDQN(nn.Module):
         if not isinstance(obs, torch.Tensor):
             obs = torch.tensor(obs, dtype=torch.float)
         batch = obs.shape[0]
-        laser = obs.view(batch, 1, -1)[:,:,:721]
-        params = obs.view(batch, -1)[:, 721:]
+        laser = obs.view(batch, 1, -1)[:,:,:720]
+        params = obs.view(batch, -1)[:, 720:]
 
         embedding = self.feature(laser).view(batch, -1)
         feature = torch.cat((embedding, params), dim = 1)
@@ -121,7 +116,7 @@ class DuelingDQN(nn.Module):
         value = self.value(feature)
         logits = value + advantage - advantage.mean(1, keepdim=True)
         return logits, state
-
+'''
 net = DuelingDQN(state_shape, action_shape, hidden_layer = training_config['hidden_layer'], cnn = training_config['cnn'])
 optim = torch.optim.Adam(net.parameters(), lr=training_config['learning_rate'])
 
@@ -147,7 +142,7 @@ def delect_log():
             if p.endswith('.log') and dirname != '/u/zifan/.ros/log':
                 os.remove(p)
 
-train_fn =lambda e: [policy.set_eps(max(0.05, 1-(e-1)/training_config['epoch']/training_config['exploration_ratio'])),
+train_fn =lambda e: [policy.set_eps(max(0.1, 1-(e-1)/training_config['epoch']/training_config['exploration_ratio'])),
                     torch.save(policy.state_dict(), os.path.join(save_path, 'policy_%d.pth' %(e)))]
 
 result = offpolicy_trainer(
@@ -155,5 +150,8 @@ result = offpolicy_trainer(
         training_config['step_per_epoch'], training_config['collect_per_step'],
         training_config['batch_size'], update_per_step=training_config['update_per_step'],
         train_fn=train_fn, writer=writer)
+
+import shutil
+shutil.rmtree('/u/zifan/buffer', ignore_errors=True) # a way to force all the actor stops
 
 train_envs.close()
