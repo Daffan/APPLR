@@ -1,0 +1,60 @@
+{
+  "section": "TD3_testbed",
+  "seed": 43,
+  "device": "cpu",
+  "use_container": true,
+  "env": "jackal",
+  "env_config": {
+    "world_name": "sequential_applr_testbed.world",
+    "VLP16": "false",
+    "gui": "false",
+    "max_step": 300,
+    "time_step": 1,
+    "laser_clip": 4,
+    "init_position": [-8, 0, 0],
+    "goal_position": [54, 0, 0],
+    "param_delta": [0.2, 0.3, 1, 2, 0.2, 0.2],
+    "param_init": [0.5, 1.57, 6, 20, 0.75, 1],
+    "param_list": ["max_vel_x", "max_vel_theta", "vx_samples", "vtheta_samples", "path_distance_bias", "goal_distance_bias"]
+  },
+  "wrapper_config": {
+    "wrapper": "sequential_world_wrapper",
+    "wrapper_args": {
+      "goal_distance_reward": 2,
+      "stuck_punishment": 1,
+      "punishment_reward": -1000,
+      "reward_scale": 1
+    }
+  },
+  "training_config": {
+    "num_actor": 1,
+    "pre_collect": 1,
+    "actor_lr": 0.0003,
+    "critic_lr": 0.001,
+    "gamma": 0.99,
+    "tau": 0.005,
+    "exploration_noise": 0.1,
+    "policy_noise": 0.2,
+    "noise_clip": 0.5,
+    "update_actor_freq": 2,
+    "grad_norm_clipping": 10,
+    "buffer_size": 20000,
+    "num_layers": 2,
+    "rew_norm": 1,
+    "ignore_done": false,
+    "hidden_size": 128,
+    "cnn": true,
+    "gamma": 0.95,
+    "n_step": 1,
+    "target_update_freq": 500,
+    "prioritized_replay": true,
+    "alpha": 0.6,
+    "beta": 0.4,
+    "epoch": 20,
+    "step_per_epoch": 20000,
+    "collect_per_step": 1,
+    "update_per_step": 10,
+    "batch_size": 128,
+    "exploration_ratio": 0.2
+  }
+}

@@ -7,3 +7,8 @@ register(
     id='jackal_discrete-v0',
     entry_point='jackal_navi_envs.jackal_env_discrete:JackalEnvDiscrete',
 )
+
+register(
+    id='jackal_continuous-v0',
+    entry_point='jackal_navi_envs.jackal_env_continuous:JackalEnvContinuous',
+)

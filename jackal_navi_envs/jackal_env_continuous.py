@@ -57,6 +57,7 @@ class JackalEnvContinuous(gym.Env):
             goal_y -= (init_y-5)
             self.init_position = [init_x, init_y, np.pi/2]
             self.goal_position = [goal_y, -goal_x, 0] # Here is a rotational transformation only in the container
+            #self.goal_position = [goal_x, goal_y, 0] # Here is a rotational transformation only in the container
 
         self.param_delta = param_delta
         self.param_init = param_init

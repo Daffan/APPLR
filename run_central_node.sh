@@ -1,1 +1,1 @@
-./singularity_run.sh python3 dqn.py --config configs/dqn_condor.json
+./singularity_run.sh python3 td3.py --config configs/td3_condor.json
