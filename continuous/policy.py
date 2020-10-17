@@ -1,175 +1,305 @@
 import torch
 import numpy as np
 from copy import deepcopy
-from typing import Dict, Union, Optional
+from typing import Any, Dict, Tuple, Union, Optional
 
 from tianshou.policy import BasePolicy
-from tianshou.data import Batch, ReplayBuffer, to_torch_as, to_numpy
+from tianshou.exploration import BaseNoise, GaussianNoise
+from tianshou.data import Batch, ReplayBuffer, to_torch_as
 
 
-class DQNPolicy(BasePolicy):
-    """Implementation of Deep Q Network. arXiv:1312.5602
-
-    Implementation of Double Q-Learning. arXiv:1509.06461
-
-    Implementation of Dueling DQN. arXiv:1511.06581 (the dueling DQN is
-    implemented in the network side, not here)
-
-    :param torch.nn.Module model: a model following the rules in
+class DDPGPolicy(BasePolicy):
+    """Implementation of Deep Deterministic Policy Gradient. arXiv:1509.02971.
+    :param torch.nn.Module actor: the actor network following the rules in
         :class:`~tianshou.policy.BasePolicy`. (s -> logits)
-    :param torch.optim.Optimizer optim: a torch.optim for optimizing the model.
-    :param float discount_factor: in [0, 1].
+    :param torch.optim.Optimizer actor_optim: the optimizer for actor network.
+    :param torch.nn.Module critic: the critic network. (s, a -> Q(s, a))
+    :param torch.optim.Optimizer critic_optim: the optimizer for critic
+        network.
+    :param action_range: the action range (minimum, maximum).
+    :type action_range: Tuple[float, float]
+    :param float tau: param for soft update of the target network, defaults to
+        0.005.
+    :param float gamma: discount factor, in [0, 1], defaults to 0.99.
+    :param BaseNoise exploration_noise: the exploration noise,
+        add to the action, defaults to ``GaussianNoise(sigma=0.1)``.
+    :param bool reward_normalization: normalize the reward to Normal(0, 1),
+        defaults to False.
+    :param bool ignore_done: ignore the done flag while training the policy,
+        defaults to False.
     :param int estimation_step: greater than 1, the number of steps to look
         ahead.
-    :param int target_update_freq: the target network update frequency (``0``
-        if you do not use the target network).
-    :param bool reward_normalization: normalize the reward to Normal(0, 1),
-        defaults to ``False``.
-
     .. seealso::
-
         Please refer to :class:`~tianshou.policy.BasePolicy` for more detailed
         explanation.
     """
 
-    def __init__(self,
-                 model: torch.nn.Module,
-                 optim: torch.optim.Optimizer,
-                 discount_factor: float = 0.99,
-                 estimation_step: int = 1,
-                 target_update_freq: Optional[int] = 0,
-                 reward_normalization: bool = False,
-                 grad_norm_clipping=10,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        actor: Optional[torch.nn.Module],
+        actor_optim: Optional[torch.optim.Optimizer],
+        critic: Optional[torch.nn.Module],
+        critic_optim: Optional[torch.optim.Optimizer],
+        action_range: Tuple[float, float],
+        tau: float = 0.005,
+        gamma: float = 0.99,
+        exploration_noise: Optional[BaseNoise] = GaussianNoise(sigma=0.1),
+        reward_normalization: bool = False,
+        ignore_done: bool = False,
+        estimation_step: int = 1,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(**kwargs)
-        self.model = model
-        self.optim = optim
-        self.eps = 0
-        assert 0 <= discount_factor <= 1, 'discount_factor should in [0, 1]'
-        self._gamma = discount_factor
-        assert estimation_step > 0, 'estimation_step should greater than 0'
-        self._n_step = estimation_step
-        self._target = target_update_freq > 0
-        self._freq = target_update_freq
-        self.grad_norm_clipping = grad_norm_clipping
-        self._cnt = 0
-        if self._target:
-            self.model_old = deepcopy(self.model)
-            self.model_old.eval()
+        if actor is not None and actor_optim is not None:
+            self.actor: torch.nn.Module = actor
+            self.actor_old = deepcopy(actor)
+            self.actor_old.eval()
+            self.actor_optim: torch.optim.Optimizer = actor_optim
+        if critic is not None and critic_optim is not None:
+            self.critic: torch.nn.Module = critic
+            self.critic_old = deepcopy(critic)
+            self.critic_old.eval()
+            self.critic_optim: torch.optim.Optimizer = critic_optim
+        assert 0.0 <= tau <= 1.0, "tau should be in [0, 1]"
+        self._tau = tau
+        assert 0.0 <= gamma <= 1.0, "gamma should be in [0, 1]"
+        self._gamma = gamma
+        self._noise = exploration_noise
+        self._range = action_range
+        self._action_bias = torch.tensor((action_range[0] + action_range[1]) / 2.0)
+        self._action_scale = (action_range[1] - action_range[0]) / 2.0
+        # it is only a little difference to use GaussianNoise
+        # self.noise = OUNoise()
+        self._rm_done = ignore_done
         self._rew_norm = reward_normalization
+        assert estimation_step > 0, "estimation_step should be greater than 0"
+        self._n_step = estimation_step
 
-    def set_eps(self, eps: float) -> None:
-        """Set the eps for epsilon-greedy exploration."""
-        self.eps = eps
+    def set_exp_noise(self, noise: Optional[BaseNoise]) -> None:
+        """Set the exploration noise."""
+        self._noise = noise
 
-    def train(self, mode=True) -> torch.nn.Module:
+    def train(self, mode: bool = True) -> "DDPGPolicy":
         """Set the module in training mode, except for the target network."""
         self.training = mode
-        self.model.train(mode)
+        self.actor.train(mode)
+        self.critic.train(mode)
         return self
 
     def sync_weight(self) -> None:
-        """Synchronize the weight for the target network."""
-        self.model_old.load_state_dict(self.model.state_dict())
+        """Soft-update the weight for the target network."""
+        for o, n in zip(self.actor_old.parameters(), self.actor.parameters()):
+            o.data.copy_(o.data * (1.0 - self._tau) + n.data * self._tau)
+        for o, n in zip(
+            self.critic_old.parameters(), self.critic.parameters()
+        ):
+            o.data.copy_(o.data * (1.0 - self._tau) + n.data * self._tau)
 
-    def _target_q(self, buffer: ReplayBuffer,
-                  indice: np.ndarray) -> torch.Tensor:
+    def _target_q(
+        self, buffer: ReplayBuffer, indice: np.ndarray
+    ) -> torch.Tensor:
         batch = buffer[indice]  # batch.obs_next: s_{t+n}
-        if self._target:
-            # target_Q = Q_old(s_, argmax(Q_new(s_, *)))
-            a = self(batch, input='obs_next', eps=0).act
-            with torch.no_grad():
-                target_q = self(
-                    batch, model='model_old', input='obs_next').logits
-            target_q = target_q[np.arange(len(a)), a]
-        else:
-            with torch.no_grad():
-                target_q = self(batch, input='obs_next').logits.max(dim=1)[0]
+        with torch.no_grad():
+            target_q = self.critic_old(
+                batch.obs_next,
+                self(batch, model='actor_old', input='obs_next').act)
         return target_q
 
-    def process_fn(self, batch: Batch, buffer: ReplayBuffer,
-                   indice: np.ndarray) -> Batch:
-        """Compute the n-step return for Q-learning targets. More details can
-        be found at :meth:`~tianshou.policy.BasePolicy.compute_nstep_return`.
-        """
+    def process_fn(
+        self, batch: Batch, buffer: ReplayBuffer, indice: np.ndarray
+    ) -> Batch:
+        if self._rm_done:
+            batch.done = batch.done * 0.0
         batch = self.compute_nstep_return(
             batch, buffer, indice, self._target_q,
             self._gamma, self._n_step, self._rew_norm)
         return batch
 
-    def forward(self, batch: Batch,
-                state: Optional[Union[dict, Batch, np.ndarray]] = None,
-                model: str = 'model',
-                input: str = 'obs',
-                eps: Optional[float] = None,
-                **kwargs) -> Batch:
-        """Compute action over the given batch data. If you need to mask the
-        action, please add a "mask" into batch.obs, for example, if we have an
-        environment that has "0/1/2" three actions:
-        ::
-
-            batch == Batch(
-                obs=Batch(
-                    obs="original obs, with batch_size=1 for demonstration",
-                    mask=np.array([[False, True, False]]),
-                    # action 1 is available
-                    # action 0 and 2 are unavailable
-                ),
-                ...
-            )
-
-        :param float eps: in [0, 1], for epsilon-greedy exploration method.
-
-        :return: A :class:`~tianshou.data.Batch` which has 3 keys:
-
+    def forward(
+        self,
+        batch: Batch,
+        state: Optional[Union[dict, Batch, np.ndarray]] = None,
+        model: str = "actor",
+        input: str = "obs",
+        **kwargs: Any,
+    ) -> Batch:
+        """Compute action over the given batch data.
+        :return: A :class:`~tianshou.data.Batch` which has 2 keys:
             * ``act`` the action.
-            * ``logits`` the network's raw output.
             * ``state`` the hidden state.
-
         .. seealso::
-
             Please refer to :meth:`~tianshou.policy.BasePolicy.forward` for
             more detailed explanation.
         """
         model = getattr(self, model)
-        obs = getattr(batch, input)
-        obs_ = obs.obs if hasattr(obs, 'obs') else obs
-        q, h = model(obs_, state=state, info=batch.info)
-        act = to_numpy(q.max(dim=1)[1])
-        has_mask = hasattr(obs, 'mask')
-        if has_mask:
-            # some of actions are masked, they cannot be selected
-            q_ = to_numpy(q)
-            q_[~obs.mask] = -np.inf
-            act = q_.argmax(axis=1)
-        # add eps to act
-        if eps is None:
-            eps = self.eps
-        if not np.isclose(eps, 0):
-            for i in range(len(q)):
-                if np.random.rand() < eps:
-                    q_ = np.random.rand(*q[i].shape)
-                    if has_mask:
-                        q_[~obs.mask[i]] = -np.inf
-                    act[i] = q_.argmax()
-        return Batch(logits=q, act=act, state=h)
+        obs = batch[input]
+        actions, h = model(obs, state=state, info=batch.info)
+        actions += self._action_bias
+        if self._noise and not self.updating:
+            actions += to_torch_as(self._noise(actions.shape), actions)
+        for i, (low, high) in enumerate(zip(self._range[0], self._range[1])):
+            actions[:,i] = actions.clone()[:,i].clamp(low, high)
+        return Batch(act=actions, state=h)
 
-    def learn(self, batch: Batch, **kwargs) -> Dict[str, float]:
-        if self._target and self._cnt % self._freq == 0:
-            self.sync_weight()
+    def learn(self, batch: Batch, **kwargs: Any) -> Dict[str, float]:
         weight = batch.pop("weight", 1.0)
-        self.optim.zero_grad()
-        q = self(batch, eps=0.).logits
-        q = q[np.arange(len(q)), batch.act]
-        r = to_torch_as(batch.returns, q).flatten()
-        c = torch.nn.SmoothL1Loss(reduction = 'none')
-        # c = lambda r, q: (r-q).pow(2)
-        td = c(r, q)
-        loss = (td * weight).mean()
-        batch.weight = r - q  # prio-buffer
-        loss.backward()
-        if self.grad_norm_clipping:
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_norm_clipping)
-        self.optim.step()
+        current_q = self.critic(batch.obs, batch.act).flatten()
+        target_q = batch.returns.flatten()
+        td = current_q - target_q
+        critic_loss = (td.pow(2) * weight).mean()
+        batch.weight = td  # prio-buffer
+        self.critic_optim.zero_grad()
+        critic_loss.backward()
+        self.critic_optim.step()
+        action = self(batch).act
+        actor_loss = -self.critic(batch.obs, action).mean()
+        self.actor_optim.zero_grad()
+        actor_loss.backward()
+        self.actor_optim.step()
+        self.sync_weight()
+        return {
+            "loss/actor": actor_loss.item(),
+            "loss/critic": critic_loss.item(),
+        }
+
+class TD3Policy(DDPGPolicy):
+    """Implementation of TD3, arXiv:1802.09477.
+    :param torch.nn.Module actor: the actor network following the rules in
+        :class:`~tianshou.policy.BasePolicy`. (s -> logits)
+    :param torch.optim.Optimizer actor_optim: the optimizer for actor network.
+    :param torch.nn.Module critic1: the first critic network. (s, a -> Q(s,
+        a))
+    :param torch.optim.Optimizer critic1_optim: the optimizer for the first
+        critic network.
+    :param torch.nn.Module critic2: the second critic network. (s, a -> Q(s,
+        a))
+    :param torch.optim.Optimizer critic2_optim: the optimizer for the second
+        critic network.
+    :param action_range: the action range (minimum, maximum).
+    :type action_range: Tuple[float, float]
+    :param float tau: param for soft update of the target network, defaults to
+        0.005.
+    :param float gamma: discount factor, in [0, 1], defaults to 0.99.
+    :param float exploration_noise: the exploration noise, add to the action,
+        defaults to ``GaussianNoise(sigma=0.1)``
+    :param float policy_noise: the noise used in updating policy network,
+        default to 0.2.
+    :param int update_actor_freq: the update frequency of actor network,
+        default to 2.
+    :param float noise_clip: the clipping range used in updating policy
+        network, default to 0.5.
+    :param bool reward_normalization: normalize the reward to Normal(0, 1),
+        defaults to False.
+    :param bool ignore_done: ignore the done flag while training the policy,
+        defaults to False.
+    .. seealso::
+        Please refer to :class:`~tianshou.policy.BasePolicy` for more detailed
+        explanation.
+    """
+
+    def __init__(
+        self,
+        actor: torch.nn.Module,
+        actor_optim: torch.optim.Optimizer,
+        critic1: torch.nn.Module,
+        critic1_optim: torch.optim.Optimizer,
+        critic2: torch.nn.Module,
+        critic2_optim: torch.optim.Optimizer,
+        action_range: Tuple[float, float],
+        tau: float = 0.005,
+        gamma: float = 0.99,
+        exploration_noise: Optional[BaseNoise] = GaussianNoise(sigma=0.1),
+        policy_noise: float = 0.2,
+        update_actor_freq: int = 2,
+        noise_clip: float = 0.5,
+        reward_normalization: bool = False,
+        ignore_done: bool = False,
+        estimation_step: int = 1,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(actor, actor_optim, None, None, action_range,
+                         tau, gamma, exploration_noise, reward_normalization,
+                         ignore_done, estimation_step, **kwargs)
+        self.critic1, self.critic1_old = critic1, deepcopy(critic1)
+        self.critic1_old.eval()
+        self.critic1_optim = critic1_optim
+        self.critic2, self.critic2_old = critic2, deepcopy(critic2)
+        self.critic2_old.eval()
+        self.critic2_optim = critic2_optim
+        self._policy_noise = policy_noise
+        self._freq = update_actor_freq
+        self._noise_clip = noise_clip
+        self._cnt = 0
+        self._last = 0
+
+    def train(self, mode: bool = True) -> "TD3Policy":
+        self.training = mode
+        self.actor.train(mode)
+        self.critic1.train(mode)
+        self.critic2.train(mode)
+        return self
+
+    def sync_weight(self) -> None:
+        for o, n in zip(self.actor_old.parameters(), self.actor.parameters()):
+            o.data.copy_(o.data * (1.0 - self._tau) + n.data * self._tau)
+        for o, n in zip(
+            self.critic1_old.parameters(), self.critic1.parameters()
+        ):
+            o.data.copy_(o.data * (1.0 - self._tau) + n.data * self._tau)
+        for o, n in zip(
+            self.critic2_old.parameters(), self.critic2.parameters()
+        ):
+            o.data.copy_(o.data * (1.0 - self._tau) + n.data * self._tau)
+
+    def _target_q(
+        self, buffer: ReplayBuffer, indice: np.ndarray
+    ) -> torch.Tensor:
+        batch = buffer[indice]  # batch.obs: s_{t+n}
+        with torch.no_grad():
+            a_ = self(batch, model="actor_old", input="obs_next").act
+            dev = a_.device
+            noise = torch.randn(size=a_.shape, device=dev) * self._policy_noise
+            if self._noise_clip > 0.0:
+                noise = noise.clamp(-self._noise_clip, self._noise_clip)
+            a_ += noise
+            for i, (low, high) in enumerate(zip(self._range[0], self._range[1])):
+                a_[:,i] = a_[:,i].clamp(low, high)
+            target_q = torch.min(
+                self.critic1_old(batch.obs_next, a_),
+                self.critic2_old(batch.obs_next, a_))
+        return target_q
+
+    def learn(self, batch: Batch, **kwargs: Any) -> Dict[str, float]:
+        weight = batch.pop("weight", 1.0)
+        # critic 1
+        current_q1 = self.critic1(batch.obs, batch.act).flatten()
+        target_q = batch.returns.flatten()
+        td1 = current_q1 - target_q
+        critic1_loss = (td1.pow(2) * weight).mean()
+        # critic1_loss = F.mse_loss(current_q1, target_q)
+        self.critic1_optim.zero_grad()
+        critic1_loss.backward()
+        self.critic1_optim.step()
+        # critic 2
+        current_q2 = self.critic2(batch.obs, batch.act).flatten()
+        td2 = current_q2 - target_q
+        critic2_loss = (td2.pow(2) * weight).mean()
+        # critic2_loss = F.mse_loss(current_q2, target_q)
+        self.critic2_optim.zero_grad()
+        critic2_loss.backward()
+        self.critic2_optim.step()
+        batch.weight = (td1 + td2) / 2.0  # prio-buffer
+        if self._cnt % self._freq == 0:
+            actor_loss = -self.critic1(
+                batch.obs, self(batch, eps=0.0).act).mean()
+            self.actor_optim.zero_grad()
+            actor_loss.backward()
+            self._last = actor_loss.item()
+            self.actor_optim.step()
+            self.sync_weight()
         self._cnt += 1
-        return {'loss': loss.item()}
+        return {
+            "loss/actor": self._last,
+            "loss/critic1": critic1_loss.item(),
+            "loss/critic2": critic2_loss.item(),
+        }

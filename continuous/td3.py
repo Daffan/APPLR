@@ -14,7 +14,7 @@ from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 
 from tianshou.env import SubprocVectorEnv, DummyVectorEnv
-from tianshou.policy import TD3Policy
+from policy import TD3Policy
 from tianshou.utils.net.common import Net
 from tianshou.exploration import GaussianNoise
 from tianshou.utils.net.continuous import Actor, Critic
@@ -83,7 +83,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 net = Net(training_config['num_layers'], state_shape, device=device, hidden_layer_size=training_config['hidden_size'])
 actor = Actor(
     net, action_shape,
-    1, device
+    1, device, hidden_layer_size=training_config['hidden_size']
 ).to(device)
 actor_optim = torch.optim.Adam(actor.parameters(), lr=training_config['actor_lr'])
 net = Net(training_config['num_layers'], state_shape,

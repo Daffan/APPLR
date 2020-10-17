@@ -11,7 +11,7 @@ import gym
 import numpy as np
 import random
 import time
-from tianshou.policy import TD3Policy
+from policy import TD3Policy
 from tianshou.utils.net.common import Net
 from tianshou.exploration import GaussianNoise
 from tianshou.utils.net.continuous import Actor, Critic
@@ -21,8 +21,8 @@ random.seed(43)
 benchmarking_train = [1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 21, 22, 23, 24, 25, 26, 28, 29, 30, 31, 33, 34, 35, 36, 37, 38, 39, 40, 42, 43, 44, 45, 46, 49, 50, 51, 52, 53, 54, 55, 56, 58, 59, 60, 61, 62, 63, 65, 66, 67, 68, 70, 71, 72, 73, 74, 75, 77, 79, 80, 81, 82, 83, 84, 85, 86, 87, 89, 90, 91, 92, 94, 95, 96, 97, 98, 99, 101, 102, 103, 105, 106, 107, 108, 109, 110, 111, 113, 114, 115, 116, 117, 119, 120, 121, 122, 124, 125, 126, 127, 128, 130, 131, 132, 134, 135, 136, 137, 139, 140, 141, 142, 143, 145, 146, 147, 148, 149, 151, 152, 153, 154, 155, 156, 157, 158, 160, 161, 162, 164, 165, 166, 167, 169, 170, 171, 172, 173, 174, 176, 177, 178, 179, 180, 181, 182, 183, 185, 186, 187, 188, 190, 191, 192, 194, 195, 196, 197, 198, 199, 200, 202, 203, 204, 205, 206, 207, 209, 210, 211, 212, 213, 215, 216, 217, 219, 220, 221, 222, 223, 224, 225, 227, 228, 230, 231, 232, 233, 234, 235, 236, 238, 239, 241, 242, 243, 244, 245, 247, 248, 249, 250, 251, 252, 253, 254, 255, 257, 259, 260, 261, 262, 263, 264, 266, 267, 268, 269, 271, 272, 273, 274, 275, 276, 278, 279, 280, 281, 282, 283, 285, 286, 287, 288, 289, 291, 292, 293, 295, 296, 297, 298, 299]
 random.shuffle(benchmarking_train)
 
-#BASE_PATH = '/u/zifan/buffer'
-BASE_PATH = '/home/gauraang/buffer'
+BASE_PATH = '/u/zifan/buffer'
+#BASE_PATH = '/home/gauraang/buffer'
 
 def init_actor(id):
     assert os.path.exists(BASE_PATH)
@@ -44,7 +44,7 @@ def load_model(model):
         except:
             time.sleep(0.1)
             pass
-    
+
     model.load_state_dict(state_dict_raw)
     model = model.float()
 
@@ -59,7 +59,7 @@ def main(id):
     config = init_actor(id)
     env_config = config['env_config']
     if env_config['world_name'] != "sequential_applr_testbed.world":
-        env_config['world_name'] = 'Benchmarking/train/world_%d.world' %(benchmarking_train[id])
+        env_config['world_name'] = 'Benchmarking/train/world_%d.world' %(202)#%(benchmarking_train[id])
         assert os.path.exists('/jackal_ws/src/jackal_helper/worlds/Benchmarking/train/world_%d.world' %(benchmarking_train[id]))
     wrapper_config = config['wrapper_config']
     training_config = config['training_config']
@@ -75,7 +75,7 @@ def main(id):
     net = Net(training_config['num_layers'], state_shape, device=device, hidden_layer_size=training_config['hidden_size'])
     actor = Actor(
         net, action_shape,
-        1, device
+        1, device, hidden_layer_size=training_config['hidden_size']
     ).to(device)
     actor_optim = torch.optim.Adam(actor.parameters(), lr=training_config['actor_lr'])
     net = Net(training_config['num_layers'], state_shape,
@@ -86,7 +86,7 @@ def main(id):
     critic2_optim = torch.optim.Adam(critic2.parameters(), lr=training_config['critic_lr'])
     policy = TD3Policy(
         actor, actor_optim, critic1, critic1_optim, critic2, critic2_optim,
-        action_range=[env.action_space.low[0], env.action_space.high[0]],
+        action_range=[env.action_space.low, env.action_space.high],
         tau=training_config['tau'], gamma=training_config['gamma'],
         exploration_noise=GaussianNoise(sigma=training_config['exploration_noise']),
         policy_noise=training_config['policy_noise'],
@@ -95,7 +95,7 @@ def main(id):
         reward_normalization=training_config['rew_norm'],
         ignore_done=training_config['ignore_done'],
         estimation_step=training_config['n_step'])
-
+    print(env.action_space.low, env.action_space.high)
     ep = 0
     while True:
         obs = env.reset()
@@ -111,7 +111,7 @@ def main(id):
             actions = policy(obs_batch).act.cpu().detach().numpy()
             obs_new, rew, done, info = env.step(actions.reshape(-1))
             count += 1
-            print('current step: %d, X position: %f, Y position: %f, rew: %f, succeed: %d' %(count, info['X'], info['Y'], rew, info['succeed']), end = '\r')
+            # print('current step: %d, X position: %f, Y position: %f, rew: %f, succeed: %d' %(count, info['X'], info['Y'], rew, info['succeed']), end = '\r')
             traj.append([obs, actions, rew, done, info])
             obs_batch = Batch(obs=[obs_new], info={})
             obs = obs_new
