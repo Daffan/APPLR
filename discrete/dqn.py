@@ -1,7 +1,10 @@
 from os.path import join, dirname, abspath
 import sys
 sys.path.append(dirname(dirname(abspath(__file__))))
-import jackal_navi_envs
+try:
+    import jackal_navi_envs
+except:
+    pass
 
 import gym
 import numpy as np
@@ -54,8 +57,9 @@ with open(os.path.join(save_path, 'config.json'), 'w') as fp:
     json.dump(config, fp)
 
 # initialize the env --> num_env can only be one right now
-wrapper_dict = jackal_navi_envs.jackal_env_wrapper.wrapper_dict
+
 if not config['use_container']:
+    wrapper_dict = jackal_navi_envs.jackal_env_wrapper.wrapper_dict
     env = wrapper_dict[wrapper_config['wrapper']](gym.make('jackal_discrete-v0', **env_config), **wrapper_config['wrapper_args'])
     train_envs = DummyVectorEnv([lambda: env for _ in range(1)])
     state_shape = env.observation_space.shape or env.observation_space.n
@@ -64,7 +68,8 @@ else:
     train_envs = config
     Collector = Fake_Collector
     state_shape = 721+len(config['env_config']['param_list']) if config['env'] == 'jackal' else 4
-    action_shape = len(config['env_config']['param_list'])**2+1 if config['env'] == 'jackal' else 2
+    action_shape = 2**len(config['env_config']['param_list'])+1 if config['env'] == 'jackal' else 2
+    print(state_shape, action_shape, config['env_config']['param_list'], len(config['env_config']['param_list']), len(config['env_config']['param_list'])**2)
 
 # config random seed
 np.random.seed(config['seed'])

@@ -3,7 +3,7 @@ import sys
 sys.path.append(dirname(dirname(abspath(__file__))))
 import jackal_navi_envs
 from jackal_navi_envs.jackal_env_wrapper import *
-from .dqn import DuelingDQN
+from policy import DuelingDQN
 
 import gym
 import numpy
@@ -133,7 +133,7 @@ for i in range(avg):
         actions = model(obs)[0].detach().numpy()[0]
         action = np.argmax(actions.reshape(-1))
         if default:
-            action = 64
+            action = list(range(len(actions)))[-1]
         obs, reward, done, info = env.step(action)
         print('current step: %d, X position: %f, Y position: %f, rew: %f' %(count, info['X'], info['Y'] , reward))
         print(info['params'])

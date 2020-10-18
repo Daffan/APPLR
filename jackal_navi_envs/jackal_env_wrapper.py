@@ -132,19 +132,20 @@ class BenchMarkingResartWrapper(gym.Wrapper):
         self.stuck_punishment = stuck_punishment
         self.punishment_reward = punishment_reward
         self.reward_scale = reward_scale
-        self.ep_count = 1
+        self.ep_count = 0
         self.switch_interval = switch_interval
 
     def reset(self):
-        if self.ep_count%(self.switch_interval+1):
+        if self.ep_count%(self.switch_interval) == 0:
             self.env.close()
-            self.env_config['world_name'] = 'Benchmarking/train/world_%d.world' %(random.choice(benchmarking_train))
-            self.env = JackalEnvDiscrete(**self.env_config)
+            w = random.choice(benchmarking_train)
+            self.env_config['world_name'] = 'Benchmarking/train/world_%d.world' %(w)
+            print('start world_%d' %(w))
+            self.env = JackalEnvDiscrete(**self.env_config, init_world = False)
             self.ep_count = 0
         self.ep_count += 1
         obs = self.env.reset()
-        self.env._set_param('/Y', self.env.gazebo_sim.get_model_state().pose.position.y)
-        self.rp = [] # sequence of robot Y position
+        self.Y = self.env.gazebo_sim.get_model_state().pose.position.y
         return obs
 
     def step(self, action):
@@ -152,10 +153,9 @@ class BenchMarkingResartWrapper(gym.Wrapper):
         obs, rew, done, info = self.env.step(action)
         # reward is the decrease of the distance
         position = self.env.gazebo_sim.get_model_state().pose.position
-        rew += (position.y - self.env._get_param('/Y')) * self.goal_distance_reward
-        self.env._set_param('/Y', position.y)
+        rew += (position.y - self.Y) * self.goal_distance_reward
+        self.Y = position.y
         rew += self.env.navi_stack.punish_rewrad()*self.stuck_punishment
-        rp = np.array(position.y)
 
         if position.z > 0.1: # or
             done = True

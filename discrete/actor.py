@@ -101,7 +101,7 @@ def main(id):
     config = init_actor(id)
     env_config = config['env_config']
     if env_config['world_name'] != "sequential_applr_testbed.world":
-        env_config['world_name'] = 'Benchmarking/train/world_%d.world' %(benchmarking_train[id])
+        env_config['world_name'] = 'Benchmarking/train/world_%d.world' %(202) # %(benchmarking_train[id])
         assert os.path.exists('/jackal_ws/src/jackal_helper/worlds/Benchmarking/train/world_%d.world' %(benchmarking_train[id]))
     wrapper_config = config['wrapper_config']
     training_config = config['training_config']
@@ -123,6 +123,8 @@ def main(id):
         count = 0
         model, eps = load_model(model)
         while not done:
+            # import time
+            # time.sleep(0.01)
             p = random.random()
             obs = torch.tensor([obs]).float()
             actions = model(obs)[0].detach().numpy()[0]
@@ -130,6 +132,7 @@ def main(id):
                 action = np.argmax(actions.reshape(-1))
             else:
                 action = random.choice(list(range(len(actions))))
+            # obs_new, rew, done, info = env.step(list(range(len(actions)))[-1])
             obs_new, rew, done, info = env.step(action)
             count += 1
             # print('current step: %d, X position: %f, Y position: %f, rew: %f, succeed: %d' %(count, info['X'], info['Y'], rew, info['succeed']), end = '\r')

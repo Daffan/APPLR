@@ -5,7 +5,7 @@ from os.path import join, dirname, abspath, exists
 import sys
 sys.path.append(dirname(dirname(abspath(__file__))))
 import jackal_navi_envs
-from .dqn import DuelingDQN
+from policy import DuelingDQN
 from torch import nn
 import torch
 import gym
@@ -116,6 +116,7 @@ def main(id, avg, default):
         env = gym.make('CartPole-v1')
     state_shape = env.observation_space.shape or env.observation_space.n
     action_shape = env.action_space.shape or env.action_space.n
+    print(action_shape)
     model = DuelingDQN(state_shape, action_shape, hidden_layer = training_config['hidden_layer'], cnn = training_config['cnn'])
 
     ep = 0
@@ -137,6 +138,7 @@ def main(id, avg, default):
             if default:
                 action = list(range(len(actions)))[-1] # Keep the default parameters unchanged
             obs_new, rew, done, info = env.step(action)
+            # obs_new, rew, done, info = env.step(list(range(len(actions)))[-1])
             count += 1
             # print('current step: %d, X position: %f, Y position: %f, rew: %f, succeed: %d' %(count, info['X'], info['Y'], rew, info['succeed']), end = '\r')
             traj.append([obs, action, rew, done, info])
