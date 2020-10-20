@@ -24,7 +24,8 @@ range_dict = {
     'vx_samples': [4, 12],
     'vtheta_samples': [8, 40],
     'path_distance_bias': [0.1, 1.5],
-    'goal_distance_bias': [0.1, 2]
+    'goal_distance_bias': [0.1, 2],
+    'inflation_radius': [0.1, 0.6]
 }
 
 class JackalEnvContinuous(gym.Env):
@@ -87,8 +88,8 @@ class JackalEnvContinuous(gym.Env):
         self.gazebo_sim = GazeboSimulation(init_position = self.init_position)
         self.navi_stack = NavigationStack(goal_position = self.goal_position)
 
-        self.action_space = spaces.Box(low=np.array([0.1, 0.314, 4, 8, 0.1, 0.1]), 
-                                                high=np.array([2, 3.14, 12, 40, 1.5, 2]), 
+        self.action_space = spaces.Box(low=np.array([0.1, 0.314, 4, 8, 0.1, 0.1]),
+                                                high=np.array([2, 3.14, 12, 40, 1.5, 2]),
                                                 dtype=np.float32)
         self.reward_range = (-np.inf, np.inf)
         if VLP16 == 'true':
@@ -156,7 +157,7 @@ class JackalEnvContinuous(gym.Env):
 
 
         for param_value, param_name in zip(action, self.param_list):
-            
+
             if 'samples' in param_name:
                 param_value = int(np.rint(param_value))
             else:

@@ -4,5 +4,8 @@ discrete/results
 
 discrete/configs/*
 
+continuous/buffer_test
+continuous/results
+
 __pycache__
 

@@ -21,7 +21,7 @@ def offpolicy_trainer(
         update_per_step: int = 1,
         train_fn: Optional[Callable[[int], None]] = None,
         writer: Optional[SummaryWriter] = None,
-        log_interval: int = 100,
+        log_interval: int = 1000,
 ) -> int:
     """A wrapper for off-policy trainer procedure. The ``step`` in trainer
     means a policy network update.
@@ -66,14 +66,14 @@ def offpolicy_trainer(
             train_fn(epoch)
         with tqdm.tqdm(total=step_per_epoch, desc=f'Epoch #{epoch}',
                        **tqdm_config) as t:
-            results = collections.deque(maxlen=100)
+            results = collections.deque(maxlen=10)
             while t.n < t.total:
                 assert train_collector.policy == policy
                 result = train_collector.collect(n_step=collect_per_step)
                 results.extend([result])
                 data = {}
                 for i in range(update_per_step * min(
-                        result['n/st'] // collect_per_step, t.total - t.n)):
+                        min(100, result['n/st']) // collect_per_step, t.total - t.n)):
                     losses = policy.update(batch_size, train_collector.buffer)
                     global_step += collect_per_step
                     for k in result.keys():

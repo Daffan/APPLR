@@ -4,18 +4,20 @@ import argparse
 parser = argparse.ArgumentParser(description = 'generate the submission file')
 parser.add_argument('--num_env', dest = 'num_env', type = int, default = 1, help = 'number of jobs to invoke')
 parser.add_argument('--out', dest = 'out_path', type = str, default = 'out', help = 'path to the saving folder')
+parser.add_argument('--test', dest = 'test', action = 'store_true', help = 'run testers')
 args = parser.parse_args()
 
 cfile = open('condor.sub', 'w')
+s = 'continuous/tester.sh' if args.test else 'continuous/actor.sh'
 common_command = \
     "requirements = InMastodon \n\
 +Group = \"GUEST\" \n\
 +Project = \"AI_ROBOTICS\" \n\
 +ProjectDescription = \"Adaptive Planner Parameter Learning From Reinforcement\" \n\
-Executable = discrete/actor.sh \n\
+Executable = %s \n\
 Universe   = vanilla\n\
 getenv     = true\n\
-transfer_executable = false \n\n"
+transfer_executable = false \n\n" %(s)
 cfile.write(common_command)
 # Loop over various values of an argument and create different output file for each
 # Then put it in the queue

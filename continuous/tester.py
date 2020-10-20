@@ -5,24 +5,24 @@ from os.path import join, dirname, abspath, exists
 import sys
 sys.path.append(dirname(dirname(abspath(__file__))))
 import jackal_navi_envs
-from torch import nn
-import torch
-import gym
-import numpy as np
-import random
-import time
+
 from policy import TD3Policy
 from tianshou.utils.net.common import Net
 from tianshou.exploration import GaussianNoise
 from tianshou.utils.net.continuous import Actor, Critic
 from tianshou.data import Batch
 
+from torch import nn
+import torch
+import gym
+import numpy as np
+import random
+import time
 random.seed(43)
-benchmarking_train = [1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 21, 22, 23, 24, 25, 26, 28, 29, 30, 31, 33, 34, 35, 36, 37, 38, 39, 40, 42, 43, 44, 45, 46, 49, 50, 51, 52, 53, 54, 55, 56, 58, 59, 60, 61, 62, 63, 65, 66, 67, 68, 70, 71, 72, 73, 74, 75, 77, 79, 80, 81, 82, 83, 84, 85, 86, 87, 89, 90, 91, 92, 94, 95, 96, 97, 98, 99, 101, 102, 103, 105, 106, 107, 108, 109, 110, 111, 113, 114, 115, 116, 117, 119, 120, 121, 122, 124, 125, 126, 127, 128, 130, 131, 132, 134, 135, 136, 137, 139, 140, 141, 142, 143, 145, 146, 147, 148, 149, 151, 152, 153, 154, 155, 156, 157, 158, 160, 161, 162, 164, 165, 166, 167, 169, 170, 171, 172, 173, 174, 176, 177, 178, 179, 180, 181, 182, 183, 185, 186, 187, 188, 190, 191, 192, 194, 195, 196, 197, 198, 199, 200, 202, 203, 204, 205, 206, 207, 209, 210, 211, 212, 213, 215, 216, 217, 219, 220, 221, 222, 223, 224, 225, 227, 228, 230, 231, 232, 233, 234, 235, 236, 238, 239, 241, 242, 243, 244, 245, 247, 248, 249, 250, 251, 252, 253, 254, 255, 257, 259, 260, 261, 262, 263, 264, 266, 267, 268, 269, 271, 272, 273, 274, 275, 276, 278, 279, 280, 281, 282, 283, 285, 286, 287, 288, 289, 291, 292, 293, 295, 296, 297, 298, 299]
-random.shuffle(benchmarking_train)
+benchmarking_test = [0, 8, 17, 19, 27, 32, 41, 47, 48, 57, 64, 69, 76, 78, 88, 93, 100, 104, 112, 118, 123, 129, 133, 138, 144, 150, 159, 163, 168, 175, 184, 189, 193, 201, 208, 214, 218, 226, 229, 237, 240, 246, 256, 258, 265, 270, 277, 284, 290, 294]
+random.shuffle(benchmarking_test)
 
-BASE_PATH = '/u/zifan/buffer'
-#BASE_PATH = '/home/gauraang/buffer'
+BASE_PATH = '/u/zifan/APPLR-1/continuous/buffer_test'
 
 def init_actor(id):
     assert os.path.exists(BASE_PATH)
@@ -54,13 +54,13 @@ def write_buffer(traj, ep, id):
     with open(join(BASE_PATH, 'actor_%s' %(str(id)), 'traj_%d.pickle' %(ep)), 'wb') as f:
         pickle.dump(traj, f)
 
-def main(id):
+def main(id, avg, default):
 
     config = init_actor(id)
     env_config = config['env_config']
     if env_config['world_name'] != "sequential_applr_testbed.world":
-        env_config['world_name'] = 'Benchmarking/train/world_%d.world' %(1)#%(benchmarking_train[id])
-        assert os.path.exists('/jackal_ws/src/jackal_helper/worlds/Benchmarking/train/world_%d.world' %(benchmarking_train[id]))
+        env_config['world_name'] = 'Benchmarking/test/world_%d.world' %(benchmarking_test[id])
+        assert os.path.exists('/jackal_ws/src/jackal_helper/worlds/Benchmarking/test/world_%d.world' %(benchmarking_test[id]))
     wrapper_config = config['wrapper_config']
     training_config = config['training_config']
     wrapper_dict = jackal_navi_envs.jackal_env_wrapper.wrapper_dict
@@ -71,6 +71,7 @@ def main(id):
     state_shape = env.observation_space.shape or env.observation_space.n
     action_shape = env.action_space.shape or env.action_space.n
 
+    # Load the model
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     net = Net(training_config['num_layers'], state_shape, device=device, hidden_layer_size=training_config['hidden_size'])
     actor = Actor(
@@ -97,7 +98,7 @@ def main(id):
         estimation_step=training_config['n_step'])
     print(env.action_space.low, env.action_space.high)
     ep = 0
-    while True:
+    for _ in range(avg):
         obs = env.reset()
         obs_batch = Batch(obs=[obs], info={})
         ep += 1
@@ -106,10 +107,13 @@ def main(id):
         count = 0
         policy = load_model(policy)
         while not done:
-            p = random.random()
-            obs = torch.tensor([obs]).float()
-            actions = policy(obs_batch).act.cpu().detach().numpy()
-            obs_new, rew, done, info = env.step(actions.reshape(-1))
+            if not default:
+                actions = policy(obs_batch).act.cpu().detach().numpy().reshape(-1)
+            else:
+                #print('use default parameters:')
+                actions = np.array([0.5, 1.57, 6, 20, 0.75, 1])
+                #print(actions)
+            obs_new, rew, done, info = env.step(actions)
             count += 1
             # print('current step: %d, X position: %f, Y position: %f, rew: %f, succeed: %d' %(count, info['X'], info['Y'], rew, info['succeed']), end = '\r')
             traj.append([obs, actions, rew, done, info])
@@ -117,10 +121,16 @@ def main(id):
             obs = obs_new
         # print('count: %d, rew: %f' %(count, rew))
         write_buffer(traj, ep, id)
+    env.close()
 
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description = 'start an actor')
     parser.add_argument('--id', dest='actor_id', type = int, default = 1)
+    parser.add_argument('--avg', dest='avg', type = int, default = 3)
+    parser.add_argument('--default', dest='default', type = bool, default = True)
+
     id = parser.parse_args().actor_id
-    main(id)
+    default = parser.parse_args().default
+    avg = parser.parse_args().avg
+    main(id, avg, default)
