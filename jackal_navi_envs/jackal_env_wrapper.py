@@ -94,16 +94,16 @@ class BenchMarkingWrapper(gym.Wrapper):
         position = self.env.gazebo_sim.get_model_state().pose.position
         rew += (position.y - self.Y) * self.goal_distance_reward
         self.Y = position.y
-        rew += self.env.navi_stack.punish_rewrad()*self.stuck_punishment
+        #rew += self.env.navi_stack.punish_rewrad()*self.stuck_punishment
 
         if position.z > 0.1 or not info['succeed']: # or
             done = True
             rew = self.punishment_reward
             info['succeed'] = False
 
-        if position.y > 10: # 10 for benchmarking
-            done = True
-            info['succeed'] = True
+        #if position.y > 10: # 10 for benchmarking
+        #    done = True
+        #    info['succeed'] = True
 
         info['X'] = position.x
         info['Y'] = position.y

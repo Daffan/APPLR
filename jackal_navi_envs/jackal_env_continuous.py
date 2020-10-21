@@ -55,9 +55,9 @@ class JackalEnvContinuous(gym.Env):
             # init_x -= 1
             init_y -= 1
             goal_x -= init_x
-            goal_y -= (init_y-5)
+            goal_y -= (init_y-3)
             self.init_position = [init_x, init_y, np.pi/2]
-            self.goal_position = [goal_y, -goal_x, 0] # Here is a rotational transformation only in the container
+            self.goal_position = [goal_x, goal_y, 0] # Here is a rotational transformation only in the container
             #self.goal_position = [goal_x, goal_y, 0] # Here is a rotational transformation only in the container
 
         self.param_delta = param_delta
@@ -88,8 +88,8 @@ class JackalEnvContinuous(gym.Env):
         self.gazebo_sim = GazeboSimulation(init_position = self.init_position)
         self.navi_stack = NavigationStack(goal_position = self.goal_position)
 
-        self.action_space = spaces.Box(low=np.array([0.1, 0.314, 4, 8, 0.1, 0.1]),
-                                                high=np.array([2, 3.14, 12, 40, 1.5, 2]),
+        self.action_space = spaces.Box(low=np.array([0.1, 0.314, 4, 8, 0.1, 0.1, 0.1]),
+                                                high=np.array([2, 3.14, 12, 40, 1.5, 2, 0.6]),
                                                 dtype=np.float32)
         self.reward_range = (-np.inf, np.inf)
         if VLP16 == 'true':

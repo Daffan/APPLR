@@ -59,7 +59,10 @@ with open(os.path.join(save_path, 'config.json'), 'w') as fp:
 # initialize the env --> num_env can only be one right now
 wrapper_dict = jackal_navi_envs.jackal_env_wrapper.wrapper_dict
 if not config['use_container']:
-    env = wrapper_dict[wrapper_config['wrapper']](gym.make('jackal_continuous-v0', **env_config), **wrapper_config['wrapper_args'])
+    if config['env'] == 'jackal':
+        env = wrapper_dict[wrapper_config['wrapper']](gym.make('jackal_continuous-v0', **env_config), **wrapper_config['wrapper_args'])
+    else:
+        env = gym.make('Pendulum-v0')
     train_envs = DummyVectorEnv([lambda: env for _ in range(1)])
     state_shape = env.observation_space.shape or env.observation_space.n
     action_shape = env.action_space.shape or env.action_space.n
@@ -67,8 +70,8 @@ else:
     train_envs = config
     Collector = Fake_Collector
 
-    state_shape = np.array((727,)) if config['env'] == 'jackal' else 4
-    action_shape = np.array((6,)) if config['env'] == 'jackal' else 2
+    state_shape = np.array((728,)) if config['env'] == 'jackal' else np.array((3,))
+    action_shape = np.array((7,)) if config['env'] == 'jackal' else np.array((1,))
 
 # config random seed
 np.random.seed(config['seed'])
@@ -87,14 +90,14 @@ actor = Actor(
 ).to(device)
 actor_optim = torch.optim.Adam(actor.parameters(), lr=training_config['actor_lr'])
 net = Net(training_config['num_layers'], state_shape,
-          action_shape, concat=True, device=device)
-critic1 = Critic(net, device).to(device)
+          action_shape, concat=True, device=device, hidden_layer_size=training_config['hidden_size'])
+critic1 = Critic(net, device, hidden_layer_size=training_config['hidden_size']).to(device)
 critic1_optim = torch.optim.Adam(critic1.parameters(), lr=training_config['critic_lr'])
-critic2 = Critic(net, device).to(device)
+critic2 = Critic(net, device, hidden_layer_size=training_config['hidden_size']).to(device)
 critic2_optim = torch.optim.Adam(critic2.parameters(), lr=training_config['critic_lr'])
 
-action_space_low = np.array([0.1, 0.314, 4., 8., 0.1, 0.1])
-action_space_high = np.array([2., 3.14, 12., 40., 1.5, 2.])
+action_space_low = np.array([0.1, 0.314, 4., 8., 0.1, 0.1, 0.1]) if config['env'] == 'jackal' else np.array([-2])
+action_space_high = np.array([2., 3.14, 12., 40., 1.5, 2., 0.6]) if config['env'] == 'jackal' else np.array([2])
 policy = TD3Policy(
     actor, actor_optim, critic1, critic1_optim, critic2, critic2_optim,
     action_range=[action_space_low, action_space_high],
@@ -117,14 +120,8 @@ else:
 train_collector = Collector(policy, train_envs, buf)
 train_collector.collect(n_step=training_config['pre_collect'])
 
-def delect_log():
-    for dirname, dirnames, filenames in os.walk('/u/zifan/.ros/log'):
-        for filename in filenames:
-            p = join(dirname, filename)
-            if p.endswith('.log') and dirname != '/u/zifan/.ros/log':
-                os.remove(p)
-
-train_fn = lambda e: [torch.save(policy.state_dict(), os.path.join(save_path, 'policy_%d.pth' %(e)))]
+train_fn = lambda e: [policy.set_exp_noise(GaussianNoise(sigma=(max(0.02, training_config['exploration_noise']*(1-(e-1)/training_config['epoch']/training_config['exploration_ratio']))))), \
+                      torch.save(policy.state_dict(), os.path.join(save_path, 'policy_%d.pth' %(e)))]
 
 result = offpolicy_trainer(
         policy, train_collector, training_config['epoch'],

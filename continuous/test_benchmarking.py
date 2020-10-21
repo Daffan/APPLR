@@ -40,7 +40,7 @@ def main():
     print('supported samples: %f per world' %(np.mean([len(result[k]['ep_return']) for k in result.keys()])))
     for k2 in ['ep_return', 'ep_length', 'succeed']:
         k1 = result.keys()
-        avg = np.mean([np.mean(result[k][k2]) for k in k1])
+        avg = np.mean([np.mean(result[k][k2]) for k in k1 if result[k][k2]])
         print('Avg %s: %f' %(k2, avg))
 
     with open(join(BASE_PATH, 'report.json'), 'w') as fp:

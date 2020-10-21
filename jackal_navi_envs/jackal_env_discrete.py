@@ -24,7 +24,8 @@ range_dict = {
     'vx_samples': [4, 12],
     'vtheta_samples': [8, 40],
     'path_distance_bias': [0.1, 1.5],
-    'goal_distance_bias': [0.1, 2]
+    'goal_distance_bias': [0.1, 2],
+    'inflation_radius': [0.1, 0.6]
 }
 
 class JackalEnvDiscrete(gym.Env):
@@ -56,7 +57,7 @@ class JackalEnvDiscrete(gym.Env):
             goal_x -= init_x
             goal_y -= (init_y-5)
             self.init_position = [init_x, init_y, np.pi/2]
-            self.goal_position = [goal_y, -goal_x, 0] # Here is a rotational transformation only in the container
+            self.goal_position = [goal_x, goal_y, 0] # Here is a rotational transformation only in the container
 
         self.param_delta = param_delta
         self.param_init = param_init

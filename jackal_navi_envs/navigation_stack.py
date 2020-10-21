@@ -140,15 +140,22 @@ class NavigationStack():
 
     def set_navi_param(self, param_name, param):
 
-        self.client.update_configuration({param_name: param})
-        rospy.set_param('/move_base/TrajectoryPlannerROS/' + param_name, param)
+        if param_name != 'inflation_radius':
+            self.client.update_configuration({param_name: param})
+            rospy.set_param('/move_base/TrajectoryPlannerROS/' + param_name, param)
 
-        if param_name == 'max_vel_theta':
-            self.client.update_configuration({'min_vel_theta': -param})
-            rospy.set_param('/move_base/TrajectoryPlannerROS/' + 'min_vel_theta', -param)
+            if param_name == 'max_vel_theta':
+                self.client.update_configuration({'min_vel_theta': -param})
+                rospy.set_param('/move_base/TrajectoryPlannerROS/' + 'min_vel_theta', -param)
+        else:
+            rospy.set_param('/move_base/global_costmap/inflater_layer/' + param_name, param)
+            rospy.set_param('/move_base/local_costmap/inflater_layer/' + param_name, param)
 
     def get_navi_param(self, param_name):
-        param = rospy.get_param('/move_base/TrajectoryPlannerROS/' + param_name)
+        if param_name != 'inflation_radius':
+            param = rospy.get_param('/move_base/TrajectoryPlannerROS/' + param_name)
+        else:
+            param = rospy.get_param('/move_base/global_costmap/inflater_layer/' + param_name)
         return param
 
     # def get_local_goal(self):

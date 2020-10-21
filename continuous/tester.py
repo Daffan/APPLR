@@ -111,7 +111,7 @@ def main(id, avg, default):
                 actions = policy(obs_batch).act.cpu().detach().numpy().reshape(-1)
             else:
                 #print('use default parameters:')
-                actions = np.array([0.5, 1.57, 6, 20, 0.75, 1])
+                actions = np.array([0.5, 1.57, 6, 20, 0.75, 1, 0.3])
                 #print(actions)
             obs_new, rew, done, info = env.step(actions)
             count += 1
@@ -128,7 +128,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'start an actor')
     parser.add_argument('--id', dest='actor_id', type = int, default = 1)
     parser.add_argument('--avg', dest='avg', type = int, default = 3)
-    parser.add_argument('--default', dest='default', type = bool, default = True)
+    parser.add_argument('--default', dest='default', type = bool, default = False)
 
     id = parser.parse_args().actor_id
     default = parser.parse_args().default

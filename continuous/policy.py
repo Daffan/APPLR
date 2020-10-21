@@ -67,7 +67,10 @@ class DDPGPolicy(BasePolicy):
         self._noise = exploration_noise
         self._range = action_range
         self._action_bias = torch.tensor((action_range[0] + action_range[1]) / 2.0)
-        self._action_scale = (action_range[1] - action_range[0]) / 2.0
+        # self._action_bias = (action_range[0] + action_range[1]) / 2.0
+        # force policy to center at init parameters
+        # self._action_bias = torch.tensor(np.array([0.5, 1.57, 6, 20, 0.75, 1, 0.3]))
+        self._action_scale = torch.tensor((action_range[1] - action_range[0]) / 2.0)
         # it is only a little difference to use GaussianNoise
         # self.noise = OUNoise()
         self._rm_done = ignore_done
@@ -134,11 +137,13 @@ class DDPGPolicy(BasePolicy):
         model = getattr(self, model)
         obs = batch[input]
         actions, h = model(obs, state=state, info=batch.info)
-        actions += self._action_bias
         if self._noise and not self.updating:
             actions += to_torch_as(self._noise(actions.shape), actions)
+        actions *= self._action_scale
+        actions += self._action_bias
         for i, (low, high) in enumerate(zip(self._range[0], self._range[1])):
             actions[:,i] = actions.clone()[:,i].clamp(low, high)
+        # actions = actions.clamp(self._range[0], self._range[1])
         return Batch(act=actions, state=h)
 
     def learn(self, batch: Batch, **kwargs: Any) -> Dict[str, float]:
@@ -264,6 +269,7 @@ class TD3Policy(DDPGPolicy):
             a_ += noise
             for i, (low, high) in enumerate(zip(self._range[0], self._range[1])):
                 a_[:,i] = a_[:,i].clamp(low, high)
+            #a_ = a_.clamp(self._range[0], self._range[1])
             target_q = torch.min(
                 self.critic1_old(batch.obs_next, a_),
                 self.critic2_old(batch.obs_next, a_))
