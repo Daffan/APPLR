@@ -267,6 +267,8 @@ class TD3Policy(DDPGPolicy):
             if self._noise_clip > 0.0:
                 noise = noise.clamp(-self._noise_clip, self._noise_clip)
             a_ += noise
+            a_ *= self._action_scale
+            a_ += self._action_bias
             for i, (low, high) in enumerate(zip(self._range[0], self._range[1])):
                 a_[:,i] = a_[:,i].clamp(low, high)
             #a_ = a_.clamp(self._range[0], self._range[1])
