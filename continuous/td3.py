@@ -45,6 +45,7 @@ with open(config_path, 'rb') as f:
 env_config = config['env_config']
 wrapper_config = config['wrapper_config']
 training_config = config['training_config']
+range_dict = jackal_navi_envs.range_dict
 
 # Config logging
 now = datetime.now()
@@ -70,8 +71,8 @@ else:
     train_envs = config
     Collector = Fake_Collector
 
-    state_shape = np.array((728,)) if config['env'] == 'jackal' else np.array((3,))
-    action_shape = np.array((7,)) if config['env'] == 'jackal' else np.array((1,))
+    state_shape = np.array((721+len(env_config['param_list']),)) if config['env'] == 'jackal' else np.array((3,))
+    action_shape = np.array((len(env_config['param_list']),)) if config['env'] == 'jackal' else np.array((1,))
 
 # config random seed
 np.random.seed(config['seed'])
@@ -96,8 +97,8 @@ critic1_optim = torch.optim.Adam(critic1.parameters(), lr=training_config['criti
 critic2 = Critic(net, device, hidden_layer_size=training_config['hidden_size']).to(device)
 critic2_optim = torch.optim.Adam(critic2.parameters(), lr=training_config['critic_lr'])
 
-action_space_low = np.array([0.1, 0.314, 4., 8., 0.1, 0.1, 0.1]) if config['env'] == 'jackal' else np.array([-2])
-action_space_high = np.array([2., 3.14, 12., 40., 1.5, 2., 0.6]) if config['env'] == 'jackal' else np.array([2])
+action_space_low = np.array([range_dict[pn][0] for pn in env_config['param_list']]) if config['env'] == 'jackal' else np.array([-2])
+action_space_high = np.array([range_dict[pn][1] for pn in env_config['param_list']]) if config['env'] == 'jackal' else np.array([2])
 policy = TD3Policy(
     actor, actor_optim, critic1, critic1_optim, critic2, critic2_optim,
     action_range=[action_space_low, action_space_high],
@@ -122,11 +123,15 @@ train_collector.collect(n_step=training_config['pre_collect'])
 
 train_fn = lambda e: [policy.set_exp_noise(GaussianNoise(sigma=(max(0.02, training_config['exploration_noise']*(1-(e-1)/training_config['epoch']/training_config['exploration_ratio']))))), \
                       torch.save(policy.state_dict(), os.path.join(save_path, 'policy_%d.pth' %(e)))]
+# train_fn = lambda e: [torch.save(policy.state_dict(), os.path.join(save_path, 'policy_%d.pth' %(e)))]
 
 result = offpolicy_trainer(
         policy, train_collector, training_config['epoch'],
         training_config['step_per_epoch'], training_config['collect_per_step'],
         training_config['batch_size'], update_per_step=training_config['update_per_step'],
         train_fn=train_fn, writer=writer)
+
+import shutil
+shutil.rmtree('/u/zifan/buffer', ignore_errors=True) # a way to force all the actor stops
 
 train_envs.close()

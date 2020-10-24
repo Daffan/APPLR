@@ -101,9 +101,9 @@ class BenchMarkingWrapper(gym.Wrapper):
             rew = self.punishment_reward
             info['succeed'] = False
 
-        #if position.y > 10: # 10 for benchmarking
-        #    done = True
-        #    info['succeed'] = True
+        if position.y > 10: # 10 for benchmarking
+            done = True
+            info['succeed'] = True
 
         info['X'] = position.x
         info['Y'] = position.y
