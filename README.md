@@ -22,14 +22,14 @@ Hard coding the --default argument to be True or False to control
 
 * Run the test
 
-Under APPLR-1 folder run: (number for num_env argument should match with the length of `Benchmarking_test` list you defined in `continuous/tester.py`)
+Under APPLR-1 folder run `python3 gen_sub1.py --num_env 50 --test` (number for num_env argument should match with the length of `Benchmarking_test` list you defined in `continuous/tester.py`)
 
-`python3 gen_sub1.py --num_env 50 --test`
+
 
 * Get the report
 
-Run the command and check `report.json` under folder `buffer_test`
-`python3 continuous/test_benchmarking.py`
+Run the command `python3 continuous/test_benchmarking.py` and check `report.json` under folder `buffer_test`
+
 
 
 
