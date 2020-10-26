@@ -1,11 +1,15 @@
 import subprocess,re
 import argparse
+import os
 
 parser = argparse.ArgumentParser(description = 'generate the submission file')
 parser.add_argument('--num_env', dest = 'num_env', type = int, default = 1, help = 'number of jobs to invoke')
 parser.add_argument('--out', dest = 'out_path', type = str, default = 'out', help = 'path to the saving folder')
 parser.add_argument('--test', dest = 'test', action = 'store_true', help = 'run testers')
 args = parser.parse_args()
+
+if not os.exists('out'):
+    os.mkdir('out')
 
 cfile = open('condor.sub', 'w')
 s = 'continuous/tester.sh' if args.test else 'continuous/actor.sh'
