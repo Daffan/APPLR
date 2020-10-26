@@ -8,7 +8,7 @@ parser.add_argument('--out', dest = 'out_path', type = str, default = 'out', hel
 parser.add_argument('--test', dest = 'test', action = 'store_true', help = 'run testers')
 args = parser.parse_args()
 
-if not os.exists('out'):
+if not os.path.exists('out'):
     os.mkdir('out')
 
 cfile = open('condor.sub', 'w')
