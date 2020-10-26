@@ -20,7 +20,8 @@ import random
 import time
 random.seed(43)
 benchmarking_test = [0, 8, 17, 19, 27, 32, 41, 47, 48, 57, 64, 69, 76, 78, 88, 93, 100, 104, 112, 118, 123, 129, 133, 138, 144, 150, 159, 163, 168, 175, 184, 189, 193, 201, 208, 214, 218, 226, 229, 237, 240, 246, 256, 258, 265, 270, 277, 284, 290, 294]
-random.shuffle(benchmarking_test)
+# benchmarking_test = list(range(300))
+# random.shuffle(benchmarking_test)
 
 BASE_PATH = '/u/zifan/APPLR-1/continuous/buffer_test'
 
@@ -80,16 +81,16 @@ def main(id, avg, default):
     ).to(device)
     actor_optim = torch.optim.Adam(actor.parameters(), lr=training_config['actor_lr'])
     net = Net(training_config['num_layers'], state_shape,
-              action_shape, concat=True, device=device)
-    critic1 = Critic(net, device).to(device)
+              action_shape, concat=True, device=device, hidden_layer_size=training_config['hidden_size'])
+    critic1 = Critic(net, device, hidden_layer_size=training_config['hidden_size']).to(device)
     critic1_optim = torch.optim.Adam(critic1.parameters(), lr=training_config['critic_lr'])
-    critic2 = Critic(net, device).to(device)
+    critic2 = Critic(net, device, hidden_layer_size=training_config['hidden_size']).to(device)
     critic2_optim = torch.optim.Adam(critic2.parameters(), lr=training_config['critic_lr'])
     policy = TD3Policy(
         actor, actor_optim, critic1, critic1_optim, critic2, critic2_optim,
         action_range=[env.action_space.low, env.action_space.high],
         tau=training_config['tau'], gamma=training_config['gamma'],
-        exploration_noise=GaussianNoise(sigma=training_config['exploration_noise']),
+        exploration_noise=None,
         policy_noise=training_config['policy_noise'],
         update_actor_freq=training_config['update_actor_freq'],
         noise_clip=training_config['noise_clip'],

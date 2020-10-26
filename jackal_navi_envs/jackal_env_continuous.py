@@ -19,13 +19,13 @@ from .navigation_stack import  NavigationStack
 gym.logger.set_level(40)
 
 range_dict = {
-    'max_vel_x': [0.1, 2],
-    'max_vel_theta': [0.314, 3.14],
-    'vx_samples': [4, 12],
-    'vtheta_samples': [8, 40],
-    'path_distance_bias': [0.1, 1.5],
-    'goal_distance_bias': [0.1, 2],
-    'inflation_radius': [0.1, 0.6]
+    'max_vel_x': [0.2, 1.8],
+    'max_vel_theta': [0.57, 2.57],
+    'vx_samples': [3, 9],
+    'vtheta_samples': [8, 32],
+    'path_distance_bias': [0.25, 1],
+    'goal_distance_bias': [0.5, 1.5],
+    'inflation_radius': [0.1, 0.5]
 }
 
 class JackalEnvContinuous(gym.Env):
