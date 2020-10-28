@@ -96,7 +96,7 @@ class BenchMarkingWrapper(gym.Wrapper):
         self.Y = position.y
         #rew += self.env.navi_stack.punish_rewrad()*self.stuck_punishment
 
-        if position.z > 0.1: # or not info['succeed']:
+        if position.z > 0.1 or not info['succeed']:
             done = True
             rew += self.punishment_reward
             info['succeed'] = False
@@ -113,9 +113,9 @@ class BenchMarkingWrapper(gym.Wrapper):
 
 class BenchMarkingWrapperReward(gym.Wrapper):
 
-    def __init__(self, env, goal_distance_reward = 2, success_reward = 50, \
+    def __init__(self, env, goal_distance_reward = 2, success_reward = 10, \
                 smoothness = 0.1, prevent_extreme = 0.1, stuck_punishment = 0.1, \
-                punishment_reward = -100, reward_scale = 1):
+                punishment_reward = -100, collision = 0.1, reward_scale = 1):
         '''A wrapper that will shape the reward by the length of the globle path. The robot flip over or stuck at the same
         place for 100 step will terminate and return a large negative reward.
         args:
@@ -132,6 +132,7 @@ class BenchMarkingWrapperReward(gym.Wrapper):
         self.success_reward = success_reward
         self.smoothness = smoothness
         self.prevent_extreme = prevent_extreme
+        self.collision = collision
 
     def reset(self):
         obs = self.env.reset()
@@ -145,26 +146,35 @@ class BenchMarkingWrapperReward(gym.Wrapper):
         # reward is the decrease of the distance
         position = self.env.gazebo_sim.get_model_state().pose.position
         rew = 0 # get rid of the time step
-        rew += (position.y - self.Y) * self.goal_distance_reward
+        rew += (0.99*position.y - self.Y) * self.goal_distance_reward
         self.Y = position.y
         rew += self.env.navi_stack.punish_rewrad()*self.stuck_punishment
 
         # smoothness
-        scale = self.env.action_space.high - self.env.action_space.low
-        rew += -np.sum(np.abs(np.array(info['params']) - self.params)*self.smoothness/scale)
-        self.params = info['params']
+        if self.smoothness:
+            scale = self.env.action_space.high - self.env.action_space.low
+            rew += -np.sum(np.abs(np.array(info['params']) - self.params)*self.smoothness/scale)
+            self.params = info['params']
 
         # prevent_extreme
-        high = self.env.action_space.high - np.array(self.env.param_init)
-        low = self.env.action_space.low - np.array(self.env.param_init)
-        r = 0
-        for i in range(len(action)):
-            t = action[i] - self.env.param_init[i]
-            if t > 0:
-                r += -self.prevent_extreme * t / high[i]
-            else:
-                r += -self.prevent_extreme * t / low[i]
-        rew += r
+        if self.prevent_extreme:
+            high = self.env.action_space.high - np.array(self.env.param_init)
+            low = self.env.action_space.low - np.array(self.env.param_init)
+            r = 0
+            for i in range(len(action)):
+                t = action[i] - self.env.param_init[i]
+                if t > 0:
+                    r += -self.prevent_extreme * t / high[i]
+                else:
+                    r += -self.prevent_extreme * t / low[i]
+            rew += r
+
+        # collision
+        if self.collision:
+            laser = obs[:721]
+            d = np.mean(sorted(laser)[:10])+0.5 #(oringinal range was [-0.5, 0.5], move to [0, 1])
+            if d < 0.1:
+                rew -= self.collision/(d+0.01)
 
         if position.z > 0.1: # or not info['succeed']:
             done = True
