@@ -67,7 +67,7 @@ class SequentialWorldWrapper(gym.Wrapper):
 
 class BenchMarkingWrapper(gym.Wrapper):
 
-    def __init__(self, env, goal_distance_reward = 2, stuck_punishment = 0.5, punishment_reward = -100, reward_scale = 1):
+    def __init__(self, env, goal_distance_reward = 2, stuck_punishment = 0.5, punishment_reward = -100, collision = 0, reward_scale = 1):
         '''A wrapper that will shape the reward by the length of the globle path. The robot flip over or stuck at the same
         place for 100 step will terminate and return a large negative reward.
         args:
@@ -81,6 +81,7 @@ class BenchMarkingWrapper(gym.Wrapper):
         self.stuck_punishment = stuck_punishment
         self.punishment_reward = punishment_reward
         self.reward_scale = reward_scale
+        self.collision = collision
 
     def reset(self):
         obs = self.env.reset()
@@ -95,6 +96,12 @@ class BenchMarkingWrapper(gym.Wrapper):
         rew += (position.y - self.Y) * self.goal_distance_reward
         self.Y = position.y
         #rew += self.env.navi_stack.punish_rewrad()*self.stuck_punishment
+
+        if self.collision:
+            laser = obs[:721]
+            d = np.mean(sorted(laser)[:10])+0.5 #(oringinal range was [-0.5, 0.5], move to [0, 1])
+            if d < 0.1:
+                rew -= self.collision/(d+0.01)
 
         if position.z > 0.1 or not info['succeed']:
             done = True

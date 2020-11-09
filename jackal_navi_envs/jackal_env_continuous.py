@@ -17,7 +17,7 @@ from .gazebo_simulation import GazeboSimulation
 from .navigation_stack import  NavigationStack
 
 gym.logger.set_level(40)
-
+'''
 range_dict = {
     'max_vel_x': [0.2, 1.8],
     'max_vel_theta': [0.57, 2.57],
@@ -26,6 +26,16 @@ range_dict = {
     'path_distance_bias': [0.25, 1],
     'goal_distance_bias': [0.5, 1.5],
     'inflation_radius': [0.1, 0.5]
+}
+'''
+range_dict = {
+    'max_vel_x': [0.2, 1.8],
+    'max_vel_theta': [0.314, 3.14],
+    'vx_samples': [4, 12],
+    'vtheta_samples': [8, 40],
+    'path_distance_bias': [0.1, 1.5],
+    'goal_distance_bias': [0.1, 2],
+    'inflation_radius': [0.1, 0.6]
 }
 
 class JackalEnvContinuous(gym.Env):
@@ -128,7 +138,7 @@ class JackalEnvContinuous(gym.Env):
         scan_ranges = np.array(laser_scan.ranges)
         scan_ranges[scan_ranges > self.laser_clip] = self.laser_clip
         y = 0.001 if abs(local_goal.position.y) < 0.001 else local_goal.position.y
-        local_goal_position = np.array([np.arctan(local_goal.position.x/y)])
+        local_goal_position = np.array([np.arctan2(local_goal.position.x/y)])
         params = []
         params_normal = []
         for pn in self.param_list:
