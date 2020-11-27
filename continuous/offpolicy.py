@@ -66,11 +66,7 @@ def offpolicy_trainer(
             train_fn(epoch)
         with tqdm.tqdm(total=step_per_epoch, desc=f'Epoch #{epoch}',
                        **tqdm_config) as t:
-<<<<<<< HEAD
             results = collections.deque(maxlen=100)
-=======
-            results = collections.deque(maxlen=10)
->>>>>>> 6d70b141e86f4679b4f0f61162189ad35b91aa59
             while t.n < t.total:
                 assert train_collector.policy == policy
                 result = train_collector.collect(n_step=collect_per_step)

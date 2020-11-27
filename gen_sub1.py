@@ -1,10 +1,7 @@
 import subprocess,re
 import argparse
 import os
-<<<<<<< HEAD
 import time
-=======
->>>>>>> 6d70b141e86f4679b4f0f61162189ad35b91aa59
 
 parser = argparse.ArgumentParser(description = 'generate the submission file')
 parser.add_argument('--num_env', dest = 'num_env', type = int, default = 1, help = 'number of jobs to invoke')
@@ -15,7 +12,6 @@ args = parser.parse_args()
 if not os.path.exists('out'):
     os.mkdir('out')
 
-<<<<<<< HEAD
 cfile = open('central_node.sub', 'w')
 s = 'run_central_node.sh'
 common_command = \
@@ -44,8 +40,6 @@ cfile.close()
 
 #time.sleep(10)
 
-=======
->>>>>>> 6d70b141e86f4679b4f0f61162189ad35b91aa59
 cfile = open('condor.sub', 'w')
 s = 'continuous/tester.sh' if args.test else 'continuous/actor.sh'
 common_command = \
