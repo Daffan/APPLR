@@ -1,3 +1,7 @@
+#############################################
+# This script tests the jackal navigation environment with random action
+#############################################
+
 import jackal_navi_envs
 from jackal_navi_envs.jackal_env_wrapper import SequentialWorldWrapper, BenchMarkingWrapper, BenchMarkingWrapperReward
 import gym
@@ -5,8 +9,6 @@ import random
 import numpy as np
 
 def main():
-    print('test a single episode of the environment')
-
     env = BenchMarkingWrapperReward(gym.make('jackal_continuous-v0', verbose = 'true',\
                                           world_name = 'Benchmarking/train/world_202.world',\
                                           param_delta = [0.2, 0.3, 1, 2, 0.2, 0.2, 0.05], \
@@ -26,7 +28,7 @@ def main():
     bias = (high + low) / 2
     scale = (high - low) / 2
 
-    while True:
+    for _ in range(10): # run 10 episode
 
         actions = 2*(np.random.rand(7) - 0.5)
         actions *= scale

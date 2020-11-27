@@ -1,3 +1,8 @@
+###################################################
+# This script loads and deploys a policy and test the
+# performance locally without container
+###################################################
+
 from os.path import join, dirname, abspath
 import sys
 sys.path.append(dirname(dirname(abspath(__file__))))
@@ -167,15 +172,6 @@ for w in worlds:
         pass
 outf.write("Finshed!\n")
 env.close()
-
-# from matplotlib import pyplot as plt
-# fig, axe = plt.subplots(6, 1, figsize = (6,18))
-
-# for i in range(6):
-#     axe[i].plot(pms[i, :])
-#     axe[i].set_ylabel(env_config['param_list'][i])
-# plt.show()
-
 
 ######## About recording ###########
 # Add the camera model to the world you used to train
