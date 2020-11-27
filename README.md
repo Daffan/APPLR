@@ -1,5 +1,32 @@
 # APPLR
 
+## Jackal Navigation Environment
+
+Two OpenAI gym environments with continuous and discrete actions spaces can be found under `jackal_navi_envs`. They are registered as `jackal_discrete-v0` and `jackal_continuous-v0`. To use the environment locally, you need a workspace with all the jackal dependencies installed. Assume you already set up the Jackal simulation, one extra package `jackal_helper` need to be installed. 
+* Under the parent folder of your workspace:
+
+```
+cd src
+git clone https://github.com/Daffan/jackal_helper.git
+cd ..
+source devel/setup.bash
+catkin_make
+```
+
+* The following python dependency need to be installed:
+```
+pip3 install gym defusedxml pyyaml pyquaternion rospkg
+```
+
+* To test the installation:
+
+```
+source <your_workspace>/devel/setup/bash
+python3 scripts/test_env.py
+```
+
+Above command will run a Jackal_navigation_env 10 episodes. 
+
 ## Singularity container
 * build the singularity image
 
@@ -7,29 +34,35 @@
 
 * Run test in container
 
-`./singularity_run.sh python3 ../test.py`
+`./singularity_run.sh python3 scripts/test_env.py`
 
-## Run test pipeline on condor
-Create a folder `buffer_test` and make sure `BASE_PATH` in `continuous/tester.py` point to the folder. Copy the model `policy.pth` and the corresponding `config.json` to `buffer_test`.
+## Train td3 policy on HTCondor
+* Check all the environment and training related configuration:
+```
+cat continuous/config/td3_condor.json
+```
 
-* Change the world to test:
+* Run the central learning node locally at host
+```
+./executable/run_central_node.sh
+```
+Running the central node locally is currently recommanded. A crowded cluster will usually idle your jobs. When you jobs is idled and recovered, it will initialize a new policy! Run it locally can prevent the issue. 
 
-Check `Benchmarking_test` list in `continuous/tester.py` that's the world to test on. Test world under folder `Benchmarking/test/`, training world under folder `Benchmarking/train`
+* Run all the actors nodes:
+```
+pytho3n gen_sub1.py --num_env <num_env in your config file>
+```
 
-* Run default or policy
+## Test your policy on HTCondor
+* Run test
+```
+python3 scripts/test_policy_condor.py --model <path/to/logfolder> --policy <policy_file_name> --test
+```
 
-Hard coding the --default argument to be True or False to control
-
-* Run the test
-
-Under APPLR-1 folder run `python3 gen_sub1.py --num_env 50 --test` (number for num_env argument should match with the length of `Benchmarking_test` list you defined in `continuous/tester.py`)
-
-
-
-* Get the report
-
-Run the command `python3 continuous/test_benchmarking.py` and check `report.json` under folder `buffer_test`
-
-
+* Get the test report
+```
+python3 scripts/report_test.py
+```
+This will print the averaging of some metrics and generate `report.json` with all test results. 
 
 
