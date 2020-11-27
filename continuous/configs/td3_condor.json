@@ -20,18 +20,31 @@
   "wrapper_config": {
     "wrapper": "bench_marking_wrapper",
     "wrapper_args": {
+<<<<<<< HEAD
       "goal_distance_reward": 1,
       "stuck_punishment": 0.1,
       "punishment_reward": -50,
       "collision": 0.00,
+=======
+      "goal_distance_reward": 2,
+      "stuck_punishment": 0,
+      "punishment_reward": -100,
+>>>>>>> 6d70b141e86f4679b4f0f61162189ad35b91aa59
       "reward_scale": 1
     }
   },
   "training_config": {
+<<<<<<< HEAD
     "num_actor": 500,
     "pre_collect": 40000,
     "actor_lr": 0.0001,
     "critic_lr": 0.0005,
+=======
+    "num_actor": 450,
+    "pre_collect": 4000,
+    "actor_lr": 0.0003,
+    "critic_lr": 0.001,
+>>>>>>> 6d70b141e86f4679b4f0f61162189ad35b91aa59
     "gamma": 0.95,
     "tau": 0.005,
     "exploration_noise": 0.5,
@@ -39,12 +52,21 @@
     "noise_clip": 0.5,
     "update_actor_freq": 2,
     "grad_norm_clipping": 10,
+<<<<<<< HEAD
     "buffer_size": 800000,
+=======
+    "buffer_size": 50000,
+>>>>>>> 6d70b141e86f4679b4f0f61162189ad35b91aa59
     "num_layers": 2,
     "rew_norm": 1,
     "ignore_done": false,
     "hidden_size": 512,
+<<<<<<< HEAD
     "n_step": 4,
+=======
+    "cnn": true,
+    "n_step": 1,
+>>>>>>> 6d70b141e86f4679b4f0f61162189ad35b91aa59
     "target_update_freq": 500,
     "prioritized_replay": false,
     "alpha": 0.6,

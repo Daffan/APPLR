@@ -28,10 +28,15 @@ range_dict = {
     'inflation_radius': [0.1, 0.5]
 }
 '''
+<<<<<<< HEAD
 # range_dict defines the possible range of the parameters. 
 # also the range the policy could set the parameters. 
 range_dict = {
     'max_vel_x': [0.2, 2],
+=======
+range_dict = {
+    'max_vel_x': [0.2, 1.8],
+>>>>>>> 6d70b141e86f4679b4f0f61162189ad35b91aa59
     'max_vel_theta': [0.314, 3.14],
     'vx_samples': [4, 12],
     'vtheta_samples': [8, 40],
@@ -87,7 +92,12 @@ class JackalEnvContinuous(gym.Env):
             goal_x -= init_x
             goal_y -= (init_y-5) # put the goal 5 meters backward
             self.init_position = [init_x, init_y, np.pi/2]
+<<<<<<< HEAD
             self.goal_position = [goal_x, goal_y, 0] 
+=======
+            self.goal_position = [goal_x, goal_y, 0] # Here is a rotational transformation only in the container
+            #self.goal_position = [goal_x, goal_y, 0] # Here is a rotational transformation only in the container
+>>>>>>> 6d70b141e86f4679b4f0f61162189ad35b91aa59
 
         self.param_delta = param_delta
         self.param_init = param_init
@@ -154,7 +164,12 @@ class JackalEnvContinuous(gym.Env):
         '''
         scan_ranges = np.array(laser_scan.ranges)
         scan_ranges[scan_ranges > self.laser_clip] = self.laser_clip
+<<<<<<< HEAD
         local_goal_position = np.array([np.arctan2(local_goal.position.y, local_goal.position.x)])
+=======
+        y = 0.001 if abs(local_goal.position.y) < 0.001 else local_goal.position.y
+        local_goal_position = np.array([np.arctan2(local_goal.position.x/y)])
+>>>>>>> 6d70b141e86f4679b4f0f61162189ad35b91aa59
         params = []
         params_normal = []
         for pn in self.param_list:

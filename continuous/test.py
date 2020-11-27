@@ -15,6 +15,12 @@ import time
 import os
 import json
 
+from policy import TD3Policy
+from tianshou.utils.net.common import Net
+from tianshou.exploration import GaussianNoise
+from tianshou.utils.net.continuous import Actor, Critic
+from tianshou.data import Batch
+
 parser = argparse.ArgumentParser(description = 'Jackal navigation simulation')
 parser.add_argument('--model', dest = 'model', type = str, default = 'results/DQN_testbed_2020_08_30_10_58', help = 'path to the saved model and configuration')
 parser.add_argument('--policy', dest = 'policy', type = str, default = 'policy_26.pth')
@@ -24,7 +30,11 @@ parser.add_argument('--gui', dest='gui', action='store_true')
 parser.add_argument('--seed', dest='seed', type = int, default = 43)
 parser.add_argument('--avg', dest='avg', type = int, default = 2)
 parser.add_argument('--world', dest = 'world', type = str, default = 'Benchmarking/train/world_1.world')
+<<<<<<< HEAD
 
+=======
+parser.add_argument('--noise', dest='noise', action='store_true')
+>>>>>>> 6d70b141e86f4679b4f0f61162189ad35b91aa59
 
 args = parser.parse_args()
 model_path = args.model
@@ -35,6 +45,10 @@ avg = args.avg
 default = args.default
 policy = args.policy
 world = args.world
+<<<<<<< HEAD
+=======
+noise = args.noise
+>>>>>>> 6d70b141e86f4679b4f0f61162189ad35b91aa59
 
 config_path = model_path + '/config.json'
 model_path = join(model_path, policy)
@@ -44,6 +58,10 @@ with open(config_path, 'rb') as f:
 
 env_config = config['env_config']
 env_config['world_name'] = world
+<<<<<<< HEAD
+=======
+env_config['gui'] = gui
+>>>>>>> 6d70b141e86f4679b4f0f61162189ad35b91aa59
 wrapper_config = config['wrapper_config']
 training_config = config['training_config']
 
@@ -63,10 +81,17 @@ actor = Actor(
 ).to(device)
 actor_optim = torch.optim.Adam(actor.parameters(), lr=training_config['actor_lr'])
 net = Net(training_config['num_layers'], state_shape,
+<<<<<<< HEAD
           action_shape, concat=True, device=device)
 critic1 = Critic(net, device).to(device)
 critic1_optim = torch.optim.Adam(critic1.parameters(), lr=training_config['critic_lr'])
 critic2 = Critic(net, device).to(device)
+=======
+          action_shape, concat=True, device=device, hidden_layer_size=training_config['hidden_size'])
+critic1 = Critic(net, device, hidden_layer_size=training_config['hidden_size']).to(device)
+critic1_optim = torch.optim.Adam(critic1.parameters(), lr=training_config['critic_lr'])
+critic2 = Critic(net, device, hidden_layer_size=training_config['hidden_size']).to(device)
+>>>>>>> 6d70b141e86f4679b4f0f61162189ad35b91aa59
 critic2_optim = torch.optim.Adam(critic2.parameters(), lr=training_config['critic_lr'])
 policy = TD3Policy(
     actor, actor_optim, critic1, critic1_optim, critic2, critic2_optim,
@@ -79,6 +104,15 @@ policy = TD3Policy(
     reward_normalization=training_config['rew_norm'],
     ignore_done=training_config['ignore_done'],
     estimation_step=training_config['n_step'])
+<<<<<<< HEAD
+=======
+print(training_config['hidden_size'])
+state_dict = torch.load(model_path)
+policy.load_state_dict(state_dict)
+
+if not noise:
+    policy._noise = None
+>>>>>>> 6d70b141e86f4679b4f0f61162189ad35b91aa59
 print(env.action_space.low, env.action_space.high)
 
 range_dict = {
@@ -90,6 +124,8 @@ range_dict = {
     'goal_distance_bias': [0.1, 2],
     'inflation_radius': [0.1, 0.6]
 }
+
+# from matplotlib import pyplot as plt
 
 rs = []
 cs = []
@@ -103,6 +139,7 @@ for i in range(avg):
     obs = env.reset()
     done = False
     while not done:
+<<<<<<< HEAD
         obs = torch.tensor([obs]).float()
         obs_batch = Batch(obs=[obs], info={})
         if not default:
@@ -113,12 +150,30 @@ for i in range(avg):
         count += 1
 
         print('current step: %d, X position: %f, Y position: %f, rew: %f' %(count, info['X'], info['Y'] , reward))
+=======
+        obs_batch = Batch(obs=[obs], info={})
+        # obs = torch.tensor([obs]).float()
+        if not default:
+            actions = policy(obs_batch).act.cpu().detach().numpy().reshape(-1)
+        else:
+            actions = np.array([1, 1.57, 6, 20, 0.75, 1])
+        obs_new, rew, done, info = env.step(actions)
+        obs = obs_new
+        # plt.plot(obs)
+        # plt.show()
+
+        print('current step: %d, X position: %f, Y position: %f, rew: %f' %(count, info['X'], info['Y'] , rew))
+>>>>>>> 6d70b141e86f4679b4f0f61162189ad35b91aa59
         print(info['params'])
         params = np.array(info['params'])
         pms = np.append(pms, np.expand_dims(params, -1), -1)
-        r += reward
+        r += rew
         count += 1
+<<<<<<< HEAD
     if count != env_config['max_step'] and reward != -500:
+=======
+    if count != env_config['max_step'] and rew != -500:
+>>>>>>> 6d70b141e86f4679b4f0f61162189ad35b91aa59
         succeed += 1
         rs.append(r)
         cs.append(count)
