@@ -9,8 +9,6 @@ from geometry_msgs.msg import Quaternion
 from sensor_msgs.msg import LaserScan
 from pyquaternion import Quaternion as qt
 
-# from tf.transformations import quaternion_from_euler
-
 def create_model_state(x, y, z, angle):
 
     model_state = ModelState()
@@ -49,11 +47,13 @@ class GazeboSimulation():
             print ("/gazebo/unpause_physics service call failed")
 
     def reset(self):
-        # /gazebo/reset_world or /gazebo/reset_simulation will
-        # destroy the world setting
+        """
+        /gazebo/reset_world or /gazebo/reset_simulation will
+        destroy the world setting, here we used set model state
+        to put the model back to the origin
+        """
         rospy.wait_for_service("/gazebo/set_model_state")
         try:
-            #reset_proxy.call()
             self._reset(self._init_model_state)
         except (rospy.ServiceException):
             print ("/gazebo/set_model_state service call failed")
@@ -70,7 +70,6 @@ class GazeboSimulation():
     def get_model_state(self):
         rospy.wait_for_service("/gazebo/get_model_state")
         try:
-            #reset_proxy.call()
             return self._model_state_getter('jackal', 'world')
         except (rospy.ServiceException):
             print ("/gazebo/get_model_state service call failed")

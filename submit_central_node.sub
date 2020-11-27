@@ -1,0 +1,13 @@
+requirements = InMastodon
++Group = "GUEST"
++Project = "AI_ROBOTICS"
++ProjectDescription = "Adaptive Planner Parameter Learning From Reinforcement"
+Executable = run_central_node.sh
+Universe   = vanilla
+getenv     = true
+transfer_executable = false
+
+        output     = out/out.txt
+        log        = out/log.txt
+        error      = out/err.txt
+        queue 1

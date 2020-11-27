@@ -35,6 +35,9 @@ def _create_global_goal(x, y, angle):
     return mb_goal
 
 def create_PoseWithCovarianceStamped():
+    """
+    Create initial pose in odometery frame (used to reset)
+    """
     a = PoseWithCovarianceStamped()
     a.header.frame_id = 'odom'
     a.pose.pose.position.x = 0.0
@@ -70,58 +73,42 @@ class Robot_config():
         self.Y = msg.pose.pose.position.y
         self.Z = msg.pose.pose.position.z
         self.PSI = np.arctan2(2 * (q0*q3 + q1*q2), (1 - 2*(q2**2+q3**2)))
-        #print(self.X, self.Y, self.PSI)
 
     def get_global_path(self, msg):
-        #print(msg.poses)
-        # self.global_path = []
         gp = []
         for pose in msg.poses:
             gp.append([pose.pose.position.x, pose.pose.position.y])
-            # self.global_path.append([pose.pose.position.x, pose.pose.position.y])
-        #print(len(self.global_path))
         gp = np.array(gp)
         x = gp[:,0]
-        # xhat = x
         try:
             xhat = scipy.signal.savgol_filter(x, 19, 3)
         except:
             xhat = x
         y = gp[:,1]
-        # yhat = y
         try:
             yhat = scipy.signal.savgol_filter(y, 19, 3)
         except:
             yhat = y
-        # plt.figure()
-        # plt.plot(xhat, yhat, 'k', linewidth=1)
-        # plt.axis('equal')
-        # plt.savefig("/home/xuesu/gp_plt.png")
-        # plt.close()
         gphat = np.column_stack((xhat, yhat))
         gphat.tolist()
         self.global_path = gphat
-        # print(self.global_path)
 
     def vel_monitor(self, msg):
+        """
+        Count the number of velocity command and velocity command
+        that is smaller than 0.2 m/s (hard coded here, count as self.bad_vel)
+        """
         vx = msg.linear.x
-        if vx < 0:
+        if vx < 0.2:
             self.bad_vel += 1
         self.vel_counter += 1
-
-
-
-
 
 def transform_lg(wp, X, Y, PSI):
     R_r2i = np.matrix([[np.cos(PSI), -np.sin(PSI), X], [np.sin(PSI), np.cos(PSI), Y], [0, 0, 1]])
     R_i2r = np.linalg.inv(R_r2i)
-    #print(R_r2i)
     pi = np.matrix([[wp[0]], [wp[1]], [1]])
     pr = np.matmul(R_i2r, pi)
-    #print(pr)
     lg = np.array([pr[0,0], pr[1, 0]])
-    #print(lg)
     return lg
 
 class NavigationStack():
@@ -140,23 +127,23 @@ class NavigationStack():
 
     def set_navi_param(self, param_name, param):
 
-        self.client.update_configuration({param_name: param})
-        rospy.set_param('/move_base/TrajectoryPlannerROS/' + param_name, param)
+        if param_name != 'inflation_radius':
+            self.client.update_configuration({param_name: param})
+            rospy.set_param('/move_base/TrajectoryPlannerROS/' + param_name, param)
 
-        if param_name == 'max_vel_theta':
-            self.client.update_configuration({'min_vel_theta': -param})
-            rospy.set_param('/move_base/TrajectoryPlannerROS/' + 'min_vel_theta', -param)
+            if param_name == 'max_vel_theta':
+                self.client.update_configuration({'min_vel_theta': -param})
+                rospy.set_param('/move_base/TrajectoryPlannerROS/' + 'min_vel_theta', -param)
+        else:
+            rospy.set_param('/move_base/global_costmap/inflater_layer/' + param_name, param)
+            rospy.set_param('/move_base/local_costmap/inflater_layer/' + param_name, param)
 
     def get_navi_param(self, param_name):
-        param = rospy.get_param('/move_base/TrajectoryPlannerROS/' + param_name)
+        if param_name != 'inflation_radius':
+            param = rospy.get_param('/move_base/TrajectoryPlannerROS/' + param_name)
+        else:
+            param = rospy.get_param('/move_base/global_costmap/inflater_layer/' + param_name)
         return param
-
-    # def get_local_goal(self):
-
-    #    local_goal = None
-    #    while local_goal is None:
-    #        local_goal = rospy.wait_for_message('/local_goal', Pose)
-    #    return local_goal
 
     def set_global_goal(self):
         self.nav_as.wait_for_server()
@@ -184,6 +171,9 @@ class NavigationStack():
         self.global_goal = _create_global_goal(goal_position[0], goal_position[1], goal_position[2])
 
     def punish_rewrad(self):
+        """
+        return a negative number of bad velocity
+        """
         try:
             rew =  self.robot_config.bad_vel
         except:
@@ -199,10 +189,8 @@ class NavigationStack():
         PSI = self.robot_config.PSI
         los = self.robot_config.los
 
-        #if len(gp)==0:
         lg_x = 0
         lg_y = 0
-        #else:
         if len(gp)>0:
             lg_flag = 0
             for wp in gp:
@@ -220,7 +208,6 @@ class NavigationStack():
                 lg_x = lg[0]
                 lg_y = lg[1]
 
-        # print(lg_x, lg_y)
         local_goal = Pose()
         local_goal.position.x = lg_x
         local_goal.position.y = lg_y

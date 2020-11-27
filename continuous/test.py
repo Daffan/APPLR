@@ -17,10 +17,13 @@ import json
 
 parser = argparse.ArgumentParser(description = 'Jackal navigation simulation')
 parser.add_argument('--model', dest = 'model', type = str, default = 'results/DQN_testbed_2020_08_30_10_58', help = 'path to the saved model and configuration')
+parser.add_argument('--policy', dest = 'policy', type = str, default = 'policy_26.pth')
 parser.add_argument('--record', dest='record', action='store_true')
+parser.add_argument('--default', dest='default', action='store_true')
 parser.add_argument('--gui', dest='gui', action='store_true')
 parser.add_argument('--seed', dest='seed', type = int, default = 43)
 parser.add_argument('--avg', dest='avg', type = int, default = 2)
+parser.add_argument('--world', dest = 'world', type = str, default = 'Benchmarking/train/world_1.world')
 
 
 args = parser.parse_args()
@@ -29,78 +32,54 @@ record = args.record
 gui = 'true' if args.gui else 'false'
 seed = args.seed
 avg = args.avg
+default = args.default
+policy = args.policy
+world = args.world
 
 config_path = model_path + '/config.json'
-model_path = model_path + '/policy_16.pth'
+model_path = join(model_path, policy)
 
 with open(config_path, 'rb') as f:
     config = json.load(f)
 
 env_config = config['env_config']
+env_config['world_name'] = world
 wrapper_config = config['wrapper_config']
 training_config = config['training_config']
 
 if record:
     env_config['world_name'] = env_config['world_name'].split('.')[0] + '_camera' + '.world'
 
-class DuelingDQN(nn.Module):
-    def __init__(self, state_shape, action_shape, hidden_layer = [64, 64], cnn = True):
-        super().__init__()
-        if cnn:
-            self.feature = nn.Sequential(
-                nn.Conv1d(in_channels=1, out_channels=32, kernel_size=5, stride=2),
-                nn.ReLU(), nn.MaxPool1d(kernel_size = 5),
-                nn.Conv1d(in_channels=32, out_channels=64, kernel_size=5, stride=2),
-                nn.ReLU(), nn.MaxPool1d(kernel_size = 5),
-                nn.Conv1d(in_channels=64, out_channels=64, kernel_size=1),
-                nn.ReLU(), nn.AvgPool1d(6)
-                )
-            feature_shape = 70
-        else:
-            self.feature = lambda x: x.view(x.shape[0], -1)
-            feature_shape = state_shape
-
-        layers = [np.prod(feature_shape)] + hidden_layer
-        self.value = []
-        self.advantage = []
-        for i, o in zip(layers[:-1], layers[1:]):
-            self.value.append(nn.Linear(i, o))
-            self.value.append(nn.ReLU(inplace=True))
-            self.advantage.append(nn.Linear(i, o))
-            self.advantage.append(nn.ReLU(inplace=True))
-        self.advantage.append(nn.Linear(o, np.prod(action_shape)))
-        self.value.append(nn.Linear(o, 1))
-
-        self.value = nn.Sequential(*self.value)
-        self.advantage = nn.Sequential(*self.advantage)
-
-    def forward(self, obs, state=None, info={}):
-        if not isinstance(obs, torch.Tensor):
-            obs = torch.tensor(obs, dtype=torch.float)
-        batch = obs.shape[0]
-        laser = obs.view(batch, 1, -1)[:,:,:721]
-        params = obs.view(batch, -1)[:, 721:]
-
-        embedding = self.feature(laser).view(batch, -1)
-        feature = torch.cat((embedding, params), dim = 1)
-
-        advantage = self.advantage(feature)
-        value = self.value(feature)
-        logits = value + advantage - advantage.mean(1, keepdim=True)
-        return logits, state
-
-state_dict = {}
-state_dict_raw = torch.load(model_path)
-for key in state_dict_raw.keys():
-    if key.split('.')[0] == 'model':
-        state_dict[key[6:]] = state_dict_raw[key]
-
-env = wrapper_dict[wrapper_config['wrapper']](gym.make('jackal_discrete-v0', **env_config), **wrapper_config['wrapper_args'])
+env = wrapper_dict[wrapper_config['wrapper']](gym.make('jackal_continuous-v0', **env_config), **wrapper_config['wrapper_args'])
 state_shape = env.observation_space.shape or env.observation_space.n
 action_shape = env.action_space.shape or env.action_space.n
-model = DuelingDQN(state_shape, action_shape, hidden_layer = training_config['hidden_layer'], cnn = training_config['cnn'])
-model.load_state_dict(state_dict)
-model = model.float()
+
+# Load the model
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+net = Net(training_config['num_layers'], state_shape, device=device, hidden_layer_size=training_config['hidden_size'])
+actor = Actor(
+    net, action_shape,
+    1, device, hidden_layer_size=training_config['hidden_size']
+).to(device)
+actor_optim = torch.optim.Adam(actor.parameters(), lr=training_config['actor_lr'])
+net = Net(training_config['num_layers'], state_shape,
+          action_shape, concat=True, device=device)
+critic1 = Critic(net, device).to(device)
+critic1_optim = torch.optim.Adam(critic1.parameters(), lr=training_config['critic_lr'])
+critic2 = Critic(net, device).to(device)
+critic2_optim = torch.optim.Adam(critic2.parameters(), lr=training_config['critic_lr'])
+policy = TD3Policy(
+    actor, actor_optim, critic1, critic1_optim, critic2, critic2_optim,
+    action_range=[env.action_space.low, env.action_space.high],
+    tau=training_config['tau'], gamma=training_config['gamma'],
+    exploration_noise=GaussianNoise(sigma=training_config['exploration_noise']),
+    policy_noise=training_config['policy_noise'],
+    update_actor_freq=training_config['update_actor_freq'],
+    noise_clip=training_config['noise_clip'],
+    reward_normalization=training_config['rew_norm'],
+    ignore_done=training_config['ignore_done'],
+    estimation_step=training_config['n_step'])
+print(env.action_space.low, env.action_space.high)
 
 range_dict = {
     'max_vel_x': [0.1, 2],
@@ -108,7 +87,8 @@ range_dict = {
     'vx_samples': [1, 12],
     'vtheta_samples': [1, 40],
     'path_distance_bias': [0.1, 1.5],
-    'goal_distance_bias': [0.1, 2]
+    'goal_distance_bias': [0.1, 2],
+    'inflation_radius': [0.1, 0.6]
 }
 
 rs = []
@@ -124,16 +104,21 @@ for i in range(avg):
     done = False
     while not done:
         obs = torch.tensor([obs]).float()
-        actions = model(obs)[0].detach().numpy()[0]
-        action = np.argmax(actions.reshape(-1))
-        obs, reward, done, info = env.step(action)
+        obs_batch = Batch(obs=[obs], info={})
+        if not default:
+            actions = policy(obs_batch).act.cpu().detach().numpy().reshape(-1)
+        else:
+            actions = np.array([0.5, 1.57, 6, 20, 0.75, 1])
+        obs_new, rew, done, info = env.step(actions)
+        count += 1
+
         print('current step: %d, X position: %f, Y position: %f, rew: %f' %(count, info['X'], info['Y'] , reward))
         print(info['params'])
         params = np.array(info['params'])
         pms = np.append(pms, np.expand_dims(params, -1), -1)
         r += reward
         count += 1
-    if count != env_config['max_step'] and reward != -1000:
+    if count != env_config['max_step'] and reward != -500:
         succeed += 1
         rs.append(r)
         cs.append(count)

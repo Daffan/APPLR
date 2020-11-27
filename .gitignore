@@ -1,8 +1,12 @@
 sftp-config.json
 
 discrete/results
+continuous/results
 
 discrete/configs/*
 
 __pycache__
 
+continuous/buffer_test*
+
+out

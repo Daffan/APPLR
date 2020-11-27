@@ -5,7 +5,7 @@ import torch
 import time
 import pickle
 
-BASE_PATH = '/home/gauraang/buffer'
+BASE_PATH = '/u/zifan/buffer'
 class Collector(object):
 
     def __init__(self, policy, env, replaybuffer):
@@ -30,6 +30,8 @@ class Collector(object):
 
     def update_policy(self):
         torch.save(self.policy.state_dict(), join(BASE_PATH, 'policy.pth'))
+        with open(join(BASE_PATH, 'eps.txt'), 'w') as f:
+            f.write(str(self.policy._noise._sigma))
 
     def buffer_expand(self, traj):
         for i in range(len(traj)):
@@ -70,6 +72,6 @@ class Collector(object):
                         os.remove(join(base, t))
                     except:
                         pass
-        return {'n/st': n_step, 'n/stt': steps, 'ep_rew': sum(ep_rew)/len(ep_rew), 'ep_len': sum(ep_len)/len(ep_len), 'succeed': sum(succeed)/len(succeed)}
+        return {'n/st': steps, 'n/stt': steps, 'ep_rew': sum(ep_rew)/len(ep_rew), 'ep_len': sum(ep_len)/len(ep_len), 'succeed': sum(succeed)/len(succeed)}
 
 
