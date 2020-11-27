@@ -1,3 +1,9 @@
+################################################################################
+# The script generates submission files and submit them to HTCondor.
+# Submission files are composed actor.sh and run_central_node.py.
+# There is an option to run central node locally (comment line 43, 44)
+################################################################################
+
 import subprocess,re
 import argparse
 import os
@@ -13,9 +19,9 @@ if not os.path.exists('out'):
     os.mkdir('out')
 
 cfile = open('central_node.sub', 'w')
-s = 'run_central_node.sh'
+s = 'executable/run_central_nod.h'
 common_command = \
-    "requirements = InMastodon \n\
+"requirements = InMastodon \n\
 +Group = \"GRAD\" \n\
 +Project = \"AI_ROBOTICS\" \n\
 +ProjectDescription = \"Adaptive Planner Parameter Learning From Reinforcement\" \n\
@@ -41,10 +47,10 @@ cfile.close()
 #time.sleep(10)
 
 cfile = open('condor.sub', 'w')
-s = 'continuous/tester.sh' if args.test else 'continuous/actor.sh'
+s = 'executable/tester.sh' if args.test else 'executable/actor.sh'
 common_command = \
-    "requirements = InMastodon \n\
-+Group = \"GUEST\" \n\
+"requirements = InMastodon \n\
++Group = \"GRAD\" \n\
 +Project = \"AI_ROBOTICS\" \n\
 +ProjectDescription = \"Adaptive Planner Parameter Learning From Reinforcement\" \n\
 Executable = %s \n\

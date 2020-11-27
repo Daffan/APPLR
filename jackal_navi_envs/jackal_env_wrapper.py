@@ -197,7 +197,6 @@ class BenchMarkingWrapperReward(gym.Wrapper):
 wrapper_dict = {
     'sequential_world_wrapper': SequentialWorldWrapper,
     'bench_marking_wrapper': BenchMarkingWrapper,
-    'bench_marking_restart_wrapper': BenchMarkingResartWrapper,
     'bench_marking_wrapper_reward': BenchMarkingWrapperReward,
     'default': lambda env: env
 }

@@ -11,7 +11,7 @@ import torch
 import time
 import pickle
 
-BASE_PATH = '/u/zifan/APPLR-1/continuous/buffer_test'
+BASE_PATH = join(os.getenv('HOME'), 'buffer_test')
 benchmarking_test = [0, 8, 17, 19, 27, 32, 41, 47, 48, 57, 64, 69, 76, 78, 88, 93, 100, 104, 112, 118, 123, 129, 133, 138, 144, 150, 159, 163, 168, 175, 184, 189, 193, 201, 208, 214, 218, 226, 229, 237, 240, 246, 256, 258, 265, 270, 277, 284, 290, 294]
 
 def main():

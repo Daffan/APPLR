@@ -1,15 +1,21 @@
 #############################################
 # This script tests the jackal navigation environment with random action
 #############################################
-
+import os
+import json
+import pickle
+from os.path import join, dirname, abspath, exists
+import sys
+sys.path.append(dirname(dirname(abspath(__file__))))
 import jackal_navi_envs
+
 from jackal_navi_envs.jackal_env_wrapper import SequentialWorldWrapper, BenchMarkingWrapper, BenchMarkingWrapperReward
 import gym
 import random
 import numpy as np
 
 def main():
-    env = BenchMarkingWrapperReward(gym.make('jackal_continuous-v0', verbose = 'true',\
+    env = BenchMarkingWrapperReward(gym.make('jackal_continuous-v0', 
                                           world_name = 'Benchmarking/train/world_202.world',\
                                           param_delta = [0.2, 0.3, 1, 2, 0.2, 0.2, 0.05], \
                                           param_init = [0.5, 1.57, 6, 20, 0.75, 1, 0.3], \
@@ -40,8 +46,8 @@ def main():
         Y = env.navi_stack.robot_config.Y
         X = env.navi_stack.robot_config.X
         p = env.gazebo_sim.get_model_state().pose.position
-        print('current step: %d, X position: %f, %f, Y position: %f, %f, rew: %f' %(count, p.x, X, p.y, Y , rew))
-        print(actions)
+        print('current step: %d, X position: %f(world_frame), %f(odem_frame), Y position: %f(world_frame), %f(odem_frame), rew: %f' %(count, p.x, X, p.y, Y , rew))
+        print("actions: ", actions)
         if done:
             env.reset()
             print(count, ep_rew)

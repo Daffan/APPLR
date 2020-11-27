@@ -18,6 +18,7 @@ import gym
 import numpy as np
 import random
 import time
+
 random.seed(43)
 SET = 'test'
 benchmarking_test = [0, 8, 17, 19, 27, 32, 41, 47, 48, 57, 64, 69, 76, 78, 88, 93, 100, 104, 112, 118, 123, 129, 133, 138, 144, 150, 159, 163, 168, 175, 184, 189, 193, 201, 208, 214, 218, 226, 229, 237, 240, 246, 256, 258, 265, 270, 277, 284, 290, 294]
@@ -25,7 +26,7 @@ if SET != 'test':
     benchmarking_test = [i for i in list(range(300)) if i not in benchmarking_test] # all the training world
     assert len(benchmarking_test)==250
 
-BASE_PATH = '/u/zifan/APPLR-1/continuous/buffer_test'
+BASE_PATH = join(os.getenv('HOME'), 'buffer_test')
 
 def init_actor(id):
     assert os.path.exists(BASE_PATH)

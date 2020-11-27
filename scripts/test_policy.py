@@ -1,9 +1,15 @@
-###################################################
-# This script loads and deploys a policy and test the
-# performance locally without container
-###################################################
-
+######################################################################################################
+# (1) The script loads and deploys a policy and test the performance locally on all the 50 test worlds
+# (2) The script doesn't support for current implementation of the env!
+######################################################################################################
+import os
+import json
+import pickle
+from os.path import join, dirname, abspath, exists
+import sys
+sys.path.append(dirname(dirname(abspath(__file__))))
 from os.path import join, dirname, abspath
+
 import sys
 sys.path.append(dirname(dirname(abspath(__file__))))
 import jackal_navi_envs
@@ -35,7 +41,6 @@ parser.add_argument('--default', dest='default', action='store_true')
 parser.add_argument('--gui', dest='gui', action='store_true')
 parser.add_argument('--seed', dest='seed', type = int, default = 43)
 parser.add_argument('--avg', dest='avg', type = int, default = 2)
-parser.add_argument('--world', dest = 'world', type = str, default = 'Benchmarking/train/world_1.world')
 parser.add_argument('--noise', dest='noise', action='store_true')
 
 args = parser.parse_args()
@@ -46,7 +51,6 @@ seed = args.seed
 avg = args.avg
 default = args.default
 policy = args.policy
-world = args.world
 noise = args.noise
 
 config_path = model_path + '/config.json'
@@ -61,7 +65,6 @@ if default:
     outf.write("Using default parameter\n")
 
 env_config = config['env_config']
-env_config['world_name'] = world
 env_config['gui'] = gui
 wrapper_config = config['wrapper_config']
 training_config = config['training_config']

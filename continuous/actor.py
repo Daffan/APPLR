@@ -25,8 +25,7 @@ benchmarking_train = 1*benchmarking_train[20:50] + 2*benchmarking_train[50:150] 
 benchmarking_train = benchmarking_train*3
 random.shuffle(benchmarking_train)
 
-BASE_PATH = '/u/zifan/buffer'
-#BASE_PATH = '/home/gauraang/buffer'
+BASE_PATH = join(os.getenv('HOME'), 'buffer')
 
 def init_actor(id):
     assert os.path.exists(BASE_PATH)
