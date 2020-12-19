@@ -28,7 +28,7 @@ if args.test:
     num_env = 50
 else:
     os.environ['TEST_SET'] = 'train'
-    num_env 250
+    num_env = 250
 
-subprocess.Popen(["python3", "gen_sub1.py", "--num_env", str(num_env), "test"])
+subprocess.Popen(["python3", "gen_sub1.py", "--num_env", str(num_env), "--test"])
 

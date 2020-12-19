@@ -97,6 +97,7 @@ class JackalEnvContinuous(gym.Env):
 
         # Launch gazebo and navigation demo
         # Should have the system enviroment source to jackal_helper
+        rospy.logwarn(">>>>>>>>>>>>>>>>>> Load world: %s <<<<<<<<<<<<<<<<<<" %(world_name))
         rospack = rospkg.RosPack()
         BASE_PATH = rospack.get_path('jackal_helper')
         self.gazebo_process = subprocess.Popen(['roslaunch', \
@@ -105,13 +106,15 @@ class JackalEnvContinuous(gym.Env):
                                                 'gui:=' + gui,
                                                 'VLP16:=' + VLP16,
                                                 'camera:=' + camera,
-                                                'verbose:=' + 'true' 
+                                                'verbose:=' + 'false' 
                                                 ])
         time.sleep(10)
 
 
-        rospy.set_param('/use_sim_time', True)
         rospy.init_node('gym', anonymous=True, log_level=rospy.FATAL)
+        rospy.set_param('/use_sim_time', True)
+        #rospy.set_param("/move_base/global_costmap/rolling_window", True)
+        #rospy.set_param("/move_base/global_costmap/static_map", False)
 
         self.gazebo_sim = GazeboSimulation(init_position = self.init_position)
         self.navi_stack = NavigationStack(goal_position = self.goal_position)

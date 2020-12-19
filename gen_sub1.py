@@ -13,13 +13,17 @@ parser = argparse.ArgumentParser(description = 'generate the submission file')
 parser.add_argument('--num_env', dest = 'num_env', type = int, default = 1, help = 'number of jobs to invoke')
 parser.add_argument('--out', dest = 'out_path', type = str, default = 'out', help = 'path to the saving folder')
 parser.add_argument('--test', dest = 'test', action = 'store_true', help = 'run testers')
+parser.add_argument('--sac', dest = 'sac', action = 'store_true', help = 'run sac')
 args = parser.parse_args()
 
 if not os.path.exists('out'):
     os.mkdir('out')
 
 cfile = open('central_node.sub', 'w')
-s = 'executable/run_central_nod.h'
+if not args.sac:
+    s = 'executable/run_central_node.sh'
+else:
+    s = 'executable/run_central_nodei_sac.sh'
 common_command = \
 "requirements = InMastodon \n\
 +Group = \"GRAD\" \n\
@@ -47,7 +51,12 @@ cfile.close()
 #time.sleep(10)
 
 cfile = open('condor.sub', 'w')
-s = 'executable/tester.sh' if args.test else 'executable/actor.sh'
+if args.sac:
+    undersore = "_sac"
+else:
+    undersore = ""
+
+s = 'executable/tester%s.sh' %(undersore) if args.test else 'executable/actor%s.sh' %(undersore)
 common_command = \
 "requirements = InMastodon \n\
 +Group = \"GRAD\" \n\

@@ -14,10 +14,10 @@ from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 
 from tianshou.env import SubprocVectorEnv, DummyVectorEnv
-from policy import TD3Policy
+from policy import SACPolicy
 from tianshou.utils.net.common import Net
 from tianshou.exploration import GaussianNoise
-from tianshou.utils.net.continuous import Actor, Critic
+from tianshou.utils.net.continuous import ActorProb, Critic
 from tianshou.data import Collector, ReplayBuffer, PrioritizedReplayBuffer
 from collector import Collector as Fake_Collector
 # from offpolicy import offpolicy_trainer
@@ -33,7 +33,7 @@ import os
 
 parser = argparse.ArgumentParser(description = 'Jackal navigation simulation')
 parser.add_argument('--config', dest = 'config_path', type = str, default = 'configs/dqn.json', help = 'path to the configuration file')
-parser.add_argument('--save', dest = 'save_path', type = str, default = 'continuous/results/', help = 'path to the saving folder')
+parser.add_argument('--save', dest = 'save_path', type = str, default = 'sac/results/', help = 'path to the saving folder')
 
 args = parser.parse_args()
 config_path = args.config_path
@@ -86,7 +86,7 @@ optim = torch.optim.Adam(net.parameters(), lr=training_config['learning_rate'])
 '''
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 net = Net(training_config['num_layers'], state_shape, device=device, hidden_layer_size=training_config['hidden_size'])
-actor = Actor(
+actor = ActorProb(
     net, action_shape,
     1, device, hidden_layer_size=training_config['hidden_size']
 ).to(device)
@@ -100,18 +100,16 @@ critic2_optim = torch.optim.Adam(critic2.parameters(), lr=training_config['criti
 
 action_space_low = np.array([range_dict[pn][0] for pn in env_config['param_list']]) if config['env'] == 'jackal' else np.array([-2])
 action_space_high = np.array([range_dict[pn][1] for pn in env_config['param_list']]) if config['env'] == 'jackal' else np.array([2])
-policy = TD3Policy(
+policy = SACPolicy(
     actor, actor_optim, critic1, critic1_optim, critic2, critic2_optim,
     action_range=[action_space_low, action_space_high],
     tau=training_config['tau'], gamma=training_config['gamma'],
-    exploration_noise=GaussianNoise(sigma=training_config['exploration_noise']),
-    policy_noise=training_config['policy_noise'],
-    update_actor_freq=training_config['update_actor_freq'],
-    noise_clip=training_config['noise_clip'],
     reward_normalization=training_config['rew_norm'],
     ignore_done=training_config['ignore_done'],
-    estimation_step=training_config['n_step'])
-
+    alpha=training_config['sac_alpha'], 
+    estimation_step=training_config['n_step'],
+    exploration_noise=GaussianNoise(sigma=0.1)
+)
 if training_config['prioritized_replay']:
     buf = PrioritizedReplayBuffer(
             training_config['buffer_size'],
@@ -122,7 +120,7 @@ else:
 train_collector = Collector(policy, train_envs, buf)
 train_collector.collect(n_step=training_config['pre_collect'])
 
-train_fn = lambda e: [policy.set_exp_noise(GaussianNoise(sigma=(max(0.02, training_config['exploration_noise']*(1-(e-1)/training_config['epoch']/training_config['exploration_ratio']))))), \
+train_fn = lambda e: [policy.set_exp_noise(GaussianNoise(sigma=(max(0, training_config['exploration_noise']*(1-(e-1)/training_config['epoch']/training_config['exploration_ratio']))))), \
                       torch.save(policy.state_dict(), os.path.join(save_path, 'policy_%d.pth' %(e)))]
 # train_fn = lambda e: [torch.save(policy.state_dict(), os.path.join(save_path, 'policy_%d.pth' %(e)))]
 

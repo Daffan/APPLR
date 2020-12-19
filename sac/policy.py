@@ -3,6 +3,7 @@ import numpy as np
 from copy import deepcopy
 from typing import Any, Dict, Tuple, Union, Optional
 
+from torch.distributions import Independent, Normal
 from tianshou.policy import BasePolicy
 from tianshou.exploration import BaseNoise, GaussianNoise
 from tianshou.data import Batch, ReplayBuffer, to_torch_as
@@ -306,7 +307,7 @@ class TD3Policy(DDPGPolicy):
             self.actor_optim.step()
             self.sync_weight()
         self._cnt += 1
-        return {:wq
+        return {
             "loss/actor": self._last,
             "loss/critic1": critic1_loss.item(),
             "loss/critic2": critic2_loss.item(),
