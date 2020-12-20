@@ -31,6 +31,9 @@ BASE_PATH = join(os.getenv('HOME'), 'buffer_test')
 
 def init_actor(id):
     assert os.path.exists(BASE_PATH)
+    import rospy
+    rospy.init_node('gym', anonymous=True, log_level=rospy.FATAL)
+    rospy.set_param('/use_sim_time', True)
     actor_path = join(BASE_PATH, 'actor_%s' %(str(id)))
     if not exists(actor_path):
         os.mkdir(actor_path) # path to store all the trajectories

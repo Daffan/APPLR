@@ -30,6 +30,9 @@ if SET != 'test':
 BASE_PATH = join(os.getenv('HOME'), 'buffer_test')
 
 def init_actor(id):
+    import rospy
+    rospy.init_node('gym', anonymous=True, log_level=rospy.FATAL)
+    rospy.set_param('/use_sim_time', True)
     assert os.path.exists(BASE_PATH)
     actor_path = join(BASE_PATH, 'actor_%s' %(str(id)))
     if not exists(actor_path):

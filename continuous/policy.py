@@ -306,7 +306,7 @@ class TD3Policy(DDPGPolicy):
             self.actor_optim.step()
             self.sync_weight()
         self._cnt += 1
-        return {:wq
+        return {
             "loss/actor": self._last,
             "loss/critic1": critic1_loss.item(),
             "loss/critic2": critic2_loss.item(),

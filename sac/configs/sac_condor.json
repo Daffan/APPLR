@@ -34,7 +34,7 @@
     "critic_lr": 0.001,
     "gamma": 0.95,
     "tau": 0.005,
-    "sac_alpha": 0.2,
+    "sac_alpha": 0.01,
     "exploration_noise": 0,
     "buffer_size": 400000,
     "num_layers": 1,
