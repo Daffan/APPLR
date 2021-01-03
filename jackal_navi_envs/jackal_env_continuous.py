@@ -40,6 +40,48 @@ range_dict = {
     'inflation_radius': [0.1, 0.6]
 }
 
+class JackalEnvContinuousNoParam(JackalEnvContinuous):
+    '''
+    The environment that will not have params from previous time step as observation.
+    '''
+    def __init__(self, **kwargs):
+        super(JackalEnvContinuousNoParam, self).__init__(JackalEnvContinuous(**kwargs))
+        if VLP16 == 'true':
+            self.observation_space = spaces.Box(low=np.array([-1]*(2095)), # a hard coding here
+                                                high=np.array([1]*(2095)),
+                                                dtype=np.float32)
+        elif VLP16 == 'false':
+            self.observation_space = spaces.Box(low=np.array([-1]*721), # a hard coding here
+                                                high=np.array([1]*721),
+                                                dtype=np.float32)
+
+    def _observation_builder(self, laser_scan, local_goal):
+        '''
+        Observation is the laser scan, local goal and all the values of paramters. 
+        Episode ends when the between gobal goal and robot positon is less than 0.4m. 
+        Reward is set to -1 for each step
+        '''
+        scan_ranges = np.array(laser_scan.ranges)
+        scan_ranges[scan_ranges > self.laser_clip] = self.laser_clip
+        local_goal_position = np.array([np.arctan2(local_goal.position.y, local_goal.position.x)])
+        params = []
+        for pn in self.param_list:
+            params.append(self.navi_stack.get_navi_param(pn))
+        state = np.concatenate([(scan_ranges-self.laser_clip/2)/self.laser_clip, (local_goal_position)/np.pi])
+
+        # check the robot distance to the goal position
+        pr = np.array([self.navi_stack.robot_config.X, self.navi_stack.robot_config.Y])
+        gpl = np.array(self.goal_position[:2])
+        self.gp_len = np.sqrt(np.sum((pr-gpl)**2))
+        # terminate when the ditance is less than 0.4 meter or
+        # exceed the maximal time step
+        if self.gp_len < 0.4 or self.step_count >= self.max_step:
+            done = True
+        else:
+            done = False
+
+        return state, -self.time_step, done, {'params': params, 'succeed': self.step_count < self.max_step}
+
 class JackalEnvContinuous(gym.Env):
 
     def __init__(self, world_name = 'sequential_applr_testbe.world', VLP16 = 'false', gui = 'false', camera = 'false',
@@ -97,31 +139,32 @@ class JackalEnvContinuous(gym.Env):
 
         # Launch gazebo and navigation demo
         # Should have the system enviroment source to jackal_helper
-        # rospy.logwarn(">>>>>>>>>>>>>>>>>> Load world: %s <<<<<<<<<<<<<<<<<<" %(world_name))
-        # rospack = rospkg.RosPack()
-        # BASE_PATH = rospack.get_path('jackal_helper')
-        # self.gazebo_process = subprocess.Popen(['roslaunch', \
-        #                                         os.path.join(BASE_PATH, 'launch', 'jackal_world_navigation.launch'),
-        #                                         'world_name:=' + world_name,
-        #                                         'gui:=' + gui,
-        #                                         'VLP16:=' + VLP16,
-        #                                         'camera:=' + camera,
-        #                                         'verbose:=' + 'false' 
-        #                                         ])
-        # time.sleep(10)
-        self.uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
-        roslaunch.configure_logging(self.uuid)
-
+        rospy.logwarn(">>>>>>>>>>>>>>>>>> Load world: %s <<<<<<<<<<<<<<<<<<" %(world_name))
         rospack = rospkg.RosPack()
         BASE_PATH = rospack.get_path('jackal_helper')
-        args_list = [os.path.join(BASE_PATH, 'launch', 'jackal_world_navigation.launch'), 'world_name:=' + world_name,
-                            'gui:=' + gui, 'VLP16:=' + VLP16, 'camera:=' + camera, 'verbose:=' + 'false']
-        launch_files = [(roslaunch.rlutil.resolve_launch_arguments(args_list)[0], args_list[1:])]
-        self.parent = roslaunch.parent.ROSLaunchParent(self.uuid, launch_files)
-        self.parent.start()
+        self.gazebo_process = subprocess.Popen(['roslaunch', \
+                                                os.path.join(BASE_PATH, 'launch', 'jackal_world_navigation.launch'),
+                                                'world_name:=' + world_name,
+                                                'gui:=' + gui,
+                                                'VLP16:=' + VLP16,
+                                                'camera:=' + camera,
+                                                'verbose:=' + 'false' 
+                                                ])
+        time.sleep(10)
+        
+        # self.uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
+        # roslaunch.configure_logging(self.uuid)
 
-        # rospy.init_node('gym', anonymous=True, log_level=rospy.FATAL)
-        # rospy.set_param('/use_sim_time', True)
+        # rospack = rospkg.RosPack()
+        # BASE_PATH = rospack.get_path('jackal_helper')
+        # args_list = [os.path.join(BASE_PATH, 'launch', 'jackal_world_navigation.launch'), 'world_name:=' + world_name,
+        #                     'gui:=' + gui, 'VLP16:=' + VLP16, 'camera:=' + camera, 'verbose:=' + 'false']
+        # launch_files = [(roslaunch.rlutil.resolve_launch_arguments(args_list)[0], args_list[1:])]
+        # self.parent = roslaunch.parent.ROSLaunchParent(self.uuid, launch_files)
+        # self.parent.start()
+
+        rospy.init_node('gym', anonymous=True, log_level=rospy.FATAL)
+        rospy.set_param('/use_sim_time', True)
         # rospy.set_param("/move_base/global_costmap/rolling_window", True)
         # rospy.set_param("/move_base/global_costmap/static_map", False)
 

@@ -13,3 +13,10 @@ register(
     id='jackal_continuous-v0',
     entry_point='jackal_navi_envs.jackal_env_continuous:JackalEnvContinuous',
 )
+
+register(
+    id='jackal_continuous-v1',
+    entry_point='jackal_navi_envs.jackal_env_continuous:JackalEnvContinuousNoParam',
+)
+
+

@@ -4,7 +4,8 @@
 # There is an option to run central node locally (comment line 43, 44)
 ################################################################################
 
-import subprocess,re
+import subprocess
+import re
 import argparse
 import os
 import time

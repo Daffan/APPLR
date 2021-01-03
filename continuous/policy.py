@@ -3,6 +3,7 @@ import numpy as np
 from copy import deepcopy
 from typing import Any, Dict, Tuple, Union, Optional
 
+from torch.distributions import Independent, Normal
 from tianshou.policy import BasePolicy
 from tianshou.exploration import BaseNoise, GaussianNoise
 from tianshou.data import Batch, ReplayBuffer, to_torch_as

@@ -178,10 +178,10 @@ class BenchMarkingWrapperReward(gym.Wrapper):
             if d < 0.1:
                 rew -= self.collision/(d+0.01)
 
-        if position.z > 0.1: # or not info['succeed']:
-            done = True
-            rew += self.punishment_reward
-            info['succeed'] = False
+        # if position.z > 0.1: # or not info['succeed']:
+        #     done = True
+        #     rew += self.punishment_reward
+        #     info['succeed'] = False
 
         if position.y > 10:
             done = True

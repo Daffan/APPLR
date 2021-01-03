@@ -82,10 +82,16 @@ def main(id, avg, default):
     # Load the model
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     net = Net(training_config['num_layers'], state_shape, device=device, hidden_layer_size=training_config['hidden_size'])
-    actor = Actor(
-        net, action_shape,
-        1, device, hidden_layer_size=training_config['hidden_size']
-    ).to(device)
+    if config['section'] == 'SAC':
+        actor = ActorProb(
+            net, action_shape,
+            1, device, hidden_layer_size=training_config['hidden_size']
+        ).to(device)
+    else:
+        actor = Actor(
+            net, action_shape,
+            1, device, hidden_layer_size=training_config['hidden_size']
+        ).to(device)
     actor_optim = torch.optim.Adam(actor.parameters(), lr=training_config['actor_lr'])
     net = Net(training_config['num_layers'], state_shape,
               action_shape, concat=True, device=device, hidden_layer_size=training_config['hidden_size'])
@@ -93,17 +99,29 @@ def main(id, avg, default):
     critic1_optim = torch.optim.Adam(critic1.parameters(), lr=training_config['critic_lr'])
     critic2 = Critic(net, device, hidden_layer_size=training_config['hidden_size']).to(device)
     critic2_optim = torch.optim.Adam(critic2.parameters(), lr=training_config['critic_lr'])
-    policy = TD3Policy(
-        actor, actor_optim, critic1, critic1_optim, critic2, critic2_optim,
-        action_range=[env.action_space.low, env.action_space.high],
-        tau=training_config['tau'], gamma=training_config['gamma'],
-        exploration_noise=None,
-        policy_noise=training_config['policy_noise'],
-        update_actor_freq=training_config['update_actor_freq'],
-        noise_clip=training_config['noise_clip'],
-        reward_normalization=training_config['rew_norm'],
-        ignore_done=training_config['ignore_done'],
-        estimation_step=training_config['n_step'])
+
+    if config['section'] == 'SAC':
+        policy = SACPolicy(
+            actor, actor_optim, critic1, critic1_optim, critic2, critic2_optim,
+            action_range=[env.action_space.low, env.action_space.high],
+            tau=training_config['tau'], gamma=training_config['gamma'],
+            reward_normalization=training_config['rew_norm'],
+            ignore_done=training_config['ignore_done'],
+            alpha=training_config['sac_alpha'],
+            exploration_noise=None,
+            estimation_step=training_config['n_step'])
+    else:
+        policy = TD3Policy(
+            actor, actor_optim, critic1, critic1_optim, critic2, critic2_optim,
+            action_range=[env.action_space.low, env.action_space.high],
+            tau=training_config['tau'], gamma=training_config['gamma'],
+            exploration_noise=GaussianNoise(sigma=training_config['exploration_noise']),
+            policy_noise=training_config['policy_noise'],
+            update_actor_freq=training_config['update_actor_freq'],
+            noise_clip=training_config['noise_clip'],
+            reward_normalization=training_config['rew_norm'],
+            ignore_done=training_config['ignore_done'],
+            estimation_step=training_config['n_step'])
     print(env.action_space.low, env.action_space.high)
     ep = 0
     for _ in range(avg):

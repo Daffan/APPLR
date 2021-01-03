@@ -16,6 +16,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tianshou.env import SubprocVectorEnv, DummyVectorEnv
 from policy import TD3Policy
 from tianshou.utils.net.common import Net
+from net import Net as CNN
 from tianshou.exploration import GaussianNoise
 from tianshou.utils.net.continuous import Actor, Critic
 from tianshou.data import Collector, ReplayBuffer, PrioritizedReplayBuffer
@@ -61,19 +62,16 @@ with open(os.path.join(save_path, 'config.json'), 'w') as fp:
 # initialize the env --> num_env can only be one right now
 wrapper_dict = jackal_navi_envs.jackal_env_wrapper.wrapper_dict
 if not config['use_container']:
-    if config['env'] == 'jackal':
-        env = wrapper_dict[wrapper_config['wrapper']](gym.make('jackal_continuous-v0', **env_config), **wrapper_config['wrapper_args'])
-    else:
-        env = gym.make('Pendulum-v0')
+    env = wrapper_dict[wrapper_config['wrapper']](gym.make(config["env"], **env_config), **wrapper_config['wrapper_args'])
     train_envs = DummyVectorEnv([lambda: env for _ in range(1)])
     state_shape = env.observation_space.shape or env.observation_space.n
     action_shape = env.action_space.shape or env.action_space.n
 else:
     train_envs = config
     Collector = Fake_Collector
-
-    state_shape = np.array((721+len(env_config['param_list']),)) if config['env'] == 'jackal' else np.array((3,))
-    action_shape = np.array((len(env_config['param_list']),)) if config['env'] == 'jackal' else np.array((1,))
+    p = len(env_config['param_list']) if config['env'] == 'jackal_continuous-v0' else 0
+    state_shape = np.array((721+p,))
+    action_shape = np.array((len(env_config['param_list']),))
 
 # config random seed
 np.random.seed(config['seed'])
@@ -85,11 +83,20 @@ net = Net(training_config['layer_num'], state_shape, action_shape, config['devic
 optim = torch.optim.Adam(net.parameters(), lr=training_config['learning_rate'])
 '''
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+Net = CNN if training_config["cnn"] == True else Net
 net = Net(training_config['num_layers'], state_shape, device=device, hidden_layer_size=training_config['hidden_size'])
-actor = Actor(
-    net, action_shape,
-    1, device, hidden_layer_size=training_config['hidden_size']
-).to(device)
+
+if config['section'] == 'SAC':
+    actor = ActorProb(
+        net, action_shape,
+        1, device, hidden_layer_size=training_config['hidden_size']
+    ).to(device)
+else:
+    actor = Actor(
+        net, action_shape,
+        1, device, hidden_layer_size=training_config['hidden_size']
+    ).to(device)
+
 actor_optim = torch.optim.Adam(actor.parameters(), lr=training_config['actor_lr'])
 net = Net(training_config['num_layers'], state_shape,
           action_shape, concat=True, device=device, hidden_layer_size=training_config['hidden_size'])
@@ -98,19 +105,31 @@ critic1_optim = torch.optim.Adam(critic1.parameters(), lr=training_config['criti
 critic2 = Critic(net, device, hidden_layer_size=training_config['hidden_size']).to(device)
 critic2_optim = torch.optim.Adam(critic2.parameters(), lr=training_config['critic_lr'])
 
-action_space_low = np.array([range_dict[pn][0] for pn in env_config['param_list']]) if config['env'] == 'jackal' else np.array([-2])
-action_space_high = np.array([range_dict[pn][1] for pn in env_config['param_list']]) if config['env'] == 'jackal' else np.array([2])
-policy = TD3Policy(
-    actor, actor_optim, critic1, critic1_optim, critic2, critic2_optim,
-    action_range=[action_space_low, action_space_high],
-    tau=training_config['tau'], gamma=training_config['gamma'],
-    exploration_noise=GaussianNoise(sigma=training_config['exploration_noise']),
-    policy_noise=training_config['policy_noise'],
-    update_actor_freq=training_config['update_actor_freq'],
-    noise_clip=training_config['noise_clip'],
-    reward_normalization=training_config['rew_norm'],
-    ignore_done=training_config['ignore_done'],
-    estimation_step=training_config['n_step'])
+action_space_low = np.array([range_dict[pn][0] for pn in env_config['param_list']])
+action_space_high = np.array([range_dict[pn][1] for pn in env_config['param_list']])
+
+if config['section'] == 'SAC':
+    policy = SACPolicy(
+        actor, actor_optim, critic1, critic1_optim, critic2, critic2_optim,
+        action_range=[env.action_space.low, env.action_space.high],
+        tau=training_config['tau'], gamma=training_config['gamma'],
+        reward_normalization=training_config['rew_norm'],
+        ignore_done=training_config['ignore_done'],
+        alpha=training_config['sac_alpha'],
+        exploration_noise=None,
+        estimation_step=training_config['n_step'])
+else:
+    policy = TD3Policy(
+        actor, actor_optim, critic1, critic1_optim, critic2, critic2_optim,
+        action_range=[env.action_space.low, env.action_space.high],
+        tau=training_config['tau'], gamma=training_config['gamma'],
+        exploration_noise=GaussianNoise(sigma=training_config['exploration_noise']),
+        policy_noise=training_config['policy_noise'],
+        update_actor_freq=training_config['update_actor_freq'],
+        noise_clip=training_config['noise_clip'],
+        reward_normalization=training_config['rew_norm'],
+        ignore_done=training_config['ignore_done'],
+        estimation_step=training_config['n_step'])
 
 if training_config['prioritized_replay']:
     buf = PrioritizedReplayBuffer(
