@@ -6,10 +6,10 @@ import sys
 sys.path.append(dirname(dirname(abspath(__file__))))
 import jackal_navi_envs
 
-from policy import TD3Policy
+from policy import TD3Policy, SACPolicy
 from tianshou.utils.net.common import Net
 from tianshou.exploration import GaussianNoise
-from tianshou.utils.net.continuous import Actor, Critic
+from tianshou.utils.net.continuous import Actor, Critic, ActorProb
 from tianshou.data import Batch
 
 from torch import nn
@@ -19,12 +19,13 @@ import numpy as np
 import random
 import time
 import os
+from utils import Benchmarking_train, Benchmarking_test, path_to_world
 
 random.seed(43)
 SET = os.getenv("TEST_SET")
-benchmarking_test = [0, 8, 17, 19, 27, 32, 41, 47, 48, 57, 64, 69, 76, 78, 88, 93, 100, 104, 112, 118, 123, 129, 133, 138, 144, 150, 159, 163, 168, 175, 184, 189, 193, 201, 208, 214, 218, 226, 229, 237, 240, 246, 256, 258, 265, 270, 277, 284, 290, 294]
+benchmarking_test = Benchmarking_test
 if SET != 'test':
-    benchmarking_test = [i for i in list(range(300)) if i not in benchmarking_test] # all the training world
+    benchmarking_test = Benchmarking_train
     assert len(benchmarking_test)==250
 
 BASE_PATH = join(os.getenv('HOME'), 'buffer_test')
@@ -67,15 +68,11 @@ def main(id, avg, default):
     config = init_actor(id)
     env_config = config['env_config']
     if env_config['world_name'] != "sequential_applr_testbed.world":
-        env_config['world_name'] = 'Benchmarking/%s/world_%d.world' %(SET, benchmarking_test[id])
-        assert os.path.exists('/jackal_ws/src/jackal_helper/worlds/Benchmarking/%s/world_%d.world' %(SET, benchmarking_test[id]))
+        assert os.path.exists(path_to_world(benchmarking_train[id]))
     wrapper_config = config['wrapper_config']
     training_config = config['training_config']
     wrapper_dict = jackal_navi_envs.jackal_env_wrapper.wrapper_dict
-    if config['env'] == 'jackal':
-        env = wrapper_dict[wrapper_config['wrapper']](gym.make('jackal_continuous-v0', **env_config), **wrapper_config['wrapper_args'])
-    else:
-        env = gym.make('CartPole-v1')
+    env = wrapper_dict[wrapper_config['wrapper']](gym.make(config["env"], **env_config), **wrapper_config['wrapper_args'])
     state_shape = env.observation_space.shape or env.observation_space.n
     action_shape = env.action_space.shape or env.action_space.n
 

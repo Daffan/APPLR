@@ -33,7 +33,11 @@ class Collector(object):
     def update_policy(self):
         torch.save(self.policy.state_dict(), join(BASE_PATH, 'policy.pth'))
         with open(join(BASE_PATH, 'eps.txt'), 'w') as f:
-            f.write(str(self.policy._noise._sigma))
+            try:
+                std = self.policy._noise._sigma
+            except:
+                std = 0
+            f.write(str(std))
 
     def buffer_expand(self, traj):
         for i in range(len(traj)):

@@ -2,6 +2,7 @@ from os.path import join, dirname, abspath
 import sys
 sys.path.append(dirname(dirname(abspath(__file__))))
 import jackal_navi_envs
+from utils import range_dict
 
 import gym
 import numpy as np
@@ -14,11 +15,11 @@ from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 
 from tianshou.env import SubprocVectorEnv, DummyVectorEnv
-from policy import TD3Policy
+from policy import TD3Policy, SACPolicy
 from tianshou.utils.net.common import Net
 from net import Net as CNN
 from tianshou.exploration import GaussianNoise
-from tianshou.utils.net.continuous import Actor, Critic
+from tianshou.utils.net.continuous import Actor, Critic, ActorProb
 from tianshou.data import Collector, ReplayBuffer, PrioritizedReplayBuffer
 from collector import Collector as Fake_Collector
 # from offpolicy import offpolicy_trainer
@@ -47,7 +48,6 @@ with open(config_path, 'rb') as f:
 env_config = config['env_config']
 wrapper_config = config['wrapper_config']
 training_config = config['training_config']
-range_dict = jackal_navi_envs.range_dict
 
 # Config logging
 now = datetime.now()
@@ -111,7 +111,7 @@ action_space_high = np.array([range_dict[pn][1] for pn in env_config['param_list
 if config['section'] == 'SAC':
     policy = SACPolicy(
         actor, actor_optim, critic1, critic1_optim, critic2, critic2_optim,
-        action_range=[env.action_space.low, env.action_space.high],
+        action_range=[action_space_low, action_space_high],
         tau=training_config['tau'], gamma=training_config['gamma'],
         reward_normalization=training_config['rew_norm'],
         ignore_done=training_config['ignore_done'],
@@ -121,7 +121,7 @@ if config['section'] == 'SAC':
 else:
     policy = TD3Policy(
         actor, actor_optim, critic1, critic1_optim, critic2, critic2_optim,
-        action_range=[env.action_space.low, env.action_space.high],
+        action_range=[action_space_low, action_space_high],
         tau=training_config['tau'], gamma=training_config['gamma'],
         exploration_noise=GaussianNoise(sigma=training_config['exploration_noise']),
         policy_noise=training_config['policy_noise'],
@@ -130,6 +130,11 @@ else:
         reward_normalization=training_config['rew_norm'],
         ignore_done=training_config['ignore_done'],
         estimation_step=training_config['n_step'])
+
+model_path = "actor.pth"
+if training_config["pre_train"]:
+    state_dict = torch.load(model_path, map_location=torch.device('cpu'))
+    policy.actor.load_state_dict(state_dict)
 
 if training_config['prioritized_replay']:
     buf = PrioritizedReplayBuffer(
