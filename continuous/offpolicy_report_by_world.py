@@ -114,7 +114,10 @@ def offpolicy_trainer(
                         if writer and update_step % log_interval == 0:
                             writer.add_scalar(
                                 k, stat[k].get(), global_step=update_step)
-                    data['exp_noise'] = policy._noise._sigma
+                    try:
+                        data['exp_noise'] = policy._noise._sigma
+                    except:
+                        data['exp_noise'] = policy._noise
                     t.update(1)
                     t.set_postfix(**data)
             if t.n <= t.total:

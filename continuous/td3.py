@@ -57,7 +57,7 @@ if not os.path.exists(save_path):
     os.mkdir(save_path)
 writer = SummaryWriter(save_path)
 with open(os.path.join(save_path, 'config.json'), 'w') as fp:
-    json.dump(config, fp)
+    json.dump(config, fp, indent=4)
 
 # initialize the env --> num_env can only be one right now
 wrapper_dict = jackal_navi_envs.jackal_env_wrapper.wrapper_dict
@@ -116,7 +116,7 @@ if config['section'] == 'SAC':
         reward_normalization=training_config['rew_norm'],
         ignore_done=training_config['ignore_done'],
         alpha=training_config['sac_alpha'],
-        exploration_noise=None,
+        exploration_noise=training_config['exploration_noise'],
         estimation_step=training_config['n_step'])
 else:
     policy = TD3Policy(
@@ -131,10 +131,10 @@ else:
         ignore_done=training_config['ignore_done'],
         estimation_step=training_config['n_step'])
 
-model_path = "actor.pth"
+model_path = "continuous/policy.pth"
 if training_config["pre_train"]:
     state_dict = torch.load(model_path, map_location=torch.device('cpu'))
-    policy.actor.load_state_dict(state_dict)
+    policy.load_state_dict(state_dict)
 
 if training_config['prioritized_replay']:
     buf = PrioritizedReplayBuffer(
@@ -146,9 +146,12 @@ else:
 train_collector = Collector(policy, train_envs, buf)
 train_collector.collect(n_step=training_config['pre_collect'])
 
-train_fn = lambda e: [policy.set_exp_noise(GaussianNoise(sigma=(max(0.02, training_config['exploration_noise']*(1-(e-1)/training_config['epoch']/training_config['exploration_ratio']))))), \
-                      torch.save(policy.state_dict(), os.path.join(save_path, 'policy_%d.pth' %(e)))]
-# train_fn = lambda e: [torch.save(policy.state_dict(), os.path.join(save_path, 'policy_%d.pth' %(e)))]
+if config['section'] == 'SAC': 
+    train_fn = lambda e: [policy.set_exp_noise(max(0, training_config['exploration_noise']*(1-(e-1)/training_config['epoch']/training_config['exploration_ratio']))), \
+                      torch.save(policy.state_dict(), os.path.join(save_path, 'policy.pth'))]
+else:
+    train_fn = lambda e: [policy.set_exp_noise(GaussianNoise(sigma=(max(0.02, training_config['exploration_noise']*(1-(e-1)/training_config['epoch']/training_config['exploration_ratio']))))), \
+                      torch.save(policy.state_dict(), os.path.join(save_path, 'policy.pth'))]
 
 result = offpolicy_trainer(
         policy, train_collector, training_config['epoch'],

@@ -110,7 +110,7 @@ class JackalEnvContinuous(gym.Env):
                                                 'gui:=' + gui,
                                                 'VLP16:=' + VLP16,
                                                 'camera:=' + camera,
-                                                'verbose:=' + 'false' 
+                                                'verbose:=' + 'true' 
                                                 ])
         time.sleep(10)
         
@@ -217,7 +217,7 @@ class JackalEnvContinuous(gym.Env):
         self.step_count+=1
 
         # Unpause the world
-        self.gazebo_sim.unpause()
+        # self.gazebo_sim.unpause()
 
         # Sleep for 5s (a hyperparameter that can be tuned)
         rospy.sleep(self.time_step)
@@ -227,7 +227,7 @@ class JackalEnvContinuous(gym.Env):
         local_goal = self.navi_stack.get_local_goal()
 
         # Pause the simulation world
-        self.gazebo_sim.pause()
+        # self.gazebo_sim.pause()
 
         return self._observation_builder(laser_scan, local_goal)
 
@@ -243,7 +243,7 @@ class JackalEnvContinuous(gym.Env):
             self.navi_stack.set_navi_param(pn, init)
 
         # Unpause simulation to make observation
-        self.gazebo_sim.unpause()
+        # self.gazebo_sim.unpause()
 
         #read laser data
         self.navi_stack.clear_costmap()
@@ -253,8 +253,10 @@ class JackalEnvContinuous(gym.Env):
         laser_scan = self.gazebo_sim.get_laser_scan()
         local_goal = self.navi_stack.get_local_goal()
         self.navi_stack.set_global_goal()
+        self.scan = laser_scan.ranges
+        self.gp = self.navi_stack.get_global_path()
 
-        self.gazebo_sim.pause()
+        # self.gazebo_sim.pause()
 
         state, _, _, _ = self._observation_builder(laser_scan, local_goal)
 
@@ -307,12 +309,11 @@ class JackalEnvContinuousNoParam(JackalEnvContinuous):
         else:
             done = False
 
-        return state, -self.time_step, done, {'params': params, 'succeed': self.step_count < self.max_step}
+        return state, -self.time_step, done, {'params': params, 'succeed': self.step_count < self.max_step, "scan": laser_scan.ranges, "gp": self.navi_stack.get_global_path()}
 
 if __name__ == '__main__':
     env = GazeboJackalNavigationEnv()
     env.reset()
     print(env.step(0))
-    env.unpause()
     time.sleep(30)
     env.close()

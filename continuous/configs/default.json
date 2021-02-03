@@ -1,5 +1,5 @@
 {
-  "section": "TD3",
+  "section": "SAC",
   "seed": 43,
   "device": "cpu",
   "use_container": true,
@@ -22,21 +22,21 @@
     "wrapper_args": {
       "goal_distance_reward": 0.5,
       "stuck_punishment": 0,
-      "punishment_reward": -50,
+      "punishment_reward": -100,
       "collision": 0.00,
       "reward_scale": 1
     }
   },
   "training_config": {
-    "num_actor": 400,
-    "pre_collect": 40000,
+    "num_actor": 100,
+    "pre_collect": 20000,
     "pre_train": true,
-    "actor_lr": 0.0002,
-    "critic_lr": 0.0005,
+    "actor_lr": 0.0005,
+    "critic_lr": 0.001,
     "gamma": 0.95,
     "tau": 0.005,
     "sac_alpha": 0.01,
-    "exploration_noise": 0.5,
+    "exploration_noise": 0.8,
     "policy_noise": 0.2,
     "noise_clip": 0.5,
     "update_actor_freq": 50,
@@ -56,6 +56,6 @@
     "collect_per_step": 10,
     "update_per_step": 1,
     "batch_size": 128,
-    "exploration_ratio": 0.5
+    "exploration_ratio": 0.6
     }
 }

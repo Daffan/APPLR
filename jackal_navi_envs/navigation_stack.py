@@ -99,7 +99,7 @@ class Robot_config():
         that is smaller than 0.2 m/s (hard coded here, count as self.bad_vel)
         """
         vx = msg.linear.x
-        if vx < 0.2:
+        if vx <= 0.2:
             self.bad_vel += 1
         self.vel_counter += 1
 
@@ -110,6 +110,14 @@ def transform_lg(wp, X, Y, PSI):
     pr = np.matmul(R_i2r, pi)
     lg = np.array([pr[0,0], pr[1, 0]])
     return lg
+
+def transform_gp(gp, X, Y, PSI):
+    R_r2i = np.matrix([[np.cos(PSI), -np.sin(PSI), X], [np.sin(PSI), np.cos(PSI), Y], [0, 0, 1]])
+    R_i2r = np.linalg.inv(R_r2i)
+
+    pi = np.concatenate([gp, np.ones_like(gp[:, :1])], axis=-1)
+    pr = np.matmul(R_i2r, pi.T)
+    return np.asarray(pr[:2, :])
 
 class NavigationStack():
 
@@ -213,3 +221,8 @@ class NavigationStack():
         local_goal.position.y = lg_y
         local_goal.orientation.w = 1
         return local_goal
+
+    def get_global_path(self):
+        gp = self.robot_config.global_path
+        gp = transform_gp(gp, self.robot_config.X, self.robot_config.Y, self.robot_config.PSI)
+        return gp.T

@@ -36,7 +36,7 @@ class Collector(object):
             try:
                 std = self.policy._noise._sigma
             except:
-                std = 0
+                std = self.policy._noise
             f.write(str(std))
 
     def buffer_expand(self, traj):

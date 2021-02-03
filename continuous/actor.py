@@ -6,6 +6,7 @@ import sys
 sys.path.append(dirname(dirname(abspath(__file__))))
 import jackal_navi_envs
 from jackal_navi_envs import range_dict
+from jackal_navi_envs.APPLX import APPLD_policy, APPLE_policy, APPLI_policy
 from torch import nn
 import torch
 import gym
@@ -18,15 +19,14 @@ from net import Net as CNN
 from tianshou.exploration import GaussianNoise
 from tianshou.utils.net.continuous import Actor, Critic, ActorProb
 from tianshou.data import Batch
-from utils import Benchmarking_train, Benchmarking_test, path_to_world
+from utils import train_worlds, Benchmarking_train, Benchmarking_test, path_to_world
 
 random.seed(43)
-benchmarking_train = Benchmarking_train[150:160]
-benchmarking_train = benchmarking_train*100
-# random.shuffle(benchmarking_train)
+train_worlds = train_worlds*100
+# random.shuffle(train_worlds)
 
 BASE_PATH = join(os.getenv('HOME'), 'buffer')
-
+APPLD_policy, APPLE_policy, APPLI_policy = APPLD_policy(), APPLE_policy(), APPLI_policy() 
 def init_actor(id):
     import rospy
     rospy.logwarn(">>>>>>>>>>>>>>>>>> actor id: %s <<<<<<<<<<<<<<<<<<" %(str(id)))
@@ -95,7 +95,8 @@ def main(id):
     config = init_actor(id)
     env_config = config['env_config']
     if env_config['world_name'] != "sequential_applr_testbed.world":
-        assert os.path.exists(path_to_world(benchmarking_train[id]))
+        assert os.path.exists(join("/jackal_ws/src/jackal_helper/worlds", path_to_world(train_worlds[id])))
+        env_config['world_name'] = path_to_world(train_worlds[id])
     wrapper_config = config['wrapper_config']
     training_config = config['training_config']
     wrapper_dict = jackal_navi_envs.jackal_env_wrapper.wrapper_dict
@@ -148,18 +149,22 @@ def main(id):
             estimation_step=training_config['n_step'])
 
     print(env.action_space.low, env.action_space.high)
-    print(">>>>>>>>>>>>>> Running on world_%d <<<<<<<<<<<<<<<<" %(benchmarking_train[id]))
+    print(">>>>>>>>>>>>>> Running on world_%d <<<<<<<<<<<<<<<<" %(train_worlds[id]))
     ep = 0
     while True:
         obs = env.reset()
+        gp = env.gp
+        scan = env.scan
         obs_batch = Batch(obs=[obs], info={})
         ep += 1
         traj = []
         done = False
         count = 0
         policy, eps = load_model(policy)
-        policy.set_exp_noise(GaussianNoise(sigma=eps))
-        # policy.set_exp_noise(GaussianNoise(sigma=0))
+        try:
+            policy.set_exp_noise(GaussianNoise(sigma=eps))
+        except:
+            pass
         while not done:
             time.sleep(0.01)
             p = random.random()
@@ -169,10 +174,29 @@ def main(id):
             #    actions = get_random_action()
             #    actions = np.array(actions)
             #else:
-            actions = policy(obs_batch).act.cpu().detach().numpy().reshape(-1)
+            obs_x = [scan, gp]
+            """
+            if p < eps/3.:
+                actions = APPLD_policy.forward(obs_x)
+                print("APPLD", actions)
+            elif p < 2*eps/3.:
+                actions = APPLI_policy.forward(obs_x)
+                print("APPLI", actions)
+            elif p < eps:
+                actions = APPLE_policy.forward(obs_x)
+                print("APPLE", actions)
+            else:
+                actions = policy(obs_batch).act.cpu().detach().numpy().reshape(-1)
+            """
+            if p < eps:
+                actions = actions = APPLD_policy.forward(obs_x) 
+            else:
+                actions = policy(obs_batch).act.cpu().detach().numpy().reshape(-1)
             obs_new, rew, done, info = env.step(actions)
             count += 1
-            info["world"] = benchmarking_train[id]
+            gp = info.pop("gp")
+            scan = info.pop("scan")
+            info["world"] = train_worlds[id]
             traj.append([obs, actions, rew, done, info])
             obs_batch = Batch(obs=[obs_new], info={})
             obs = obs_new
