@@ -2,7 +2,7 @@ import time
 import tqdm
 import numpy as np
 import collections
-from torch.utils.tensorboard import SummaryWriter
+from tensorboardX import SummaryWriter
 from typing import Dict, List, Union, Callable, Optional
 
 from tianshou.data import Collector

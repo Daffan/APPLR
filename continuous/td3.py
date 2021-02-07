@@ -12,7 +12,7 @@ except:
     pass
 import torch
 from torch import nn
-from torch.utils.tensorboard import SummaryWriter
+from tensorboardX import SummaryWriter
 
 from tianshou.env import SubprocVectorEnv, DummyVectorEnv
 from policy import TD3Policy, SACPolicy

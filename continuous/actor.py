@@ -23,7 +23,7 @@ from utils import train_worlds, Benchmarking_train, Benchmarking_test, path_to_w
 
 random.seed(43)
 train_worlds = train_worlds*100
-# random.shuffle(train_worlds)
+random.shuffle(train_worlds)
 
 BASE_PATH = join(os.getenv('HOME'), 'buffer')
 APPLD_policy, APPLE_policy, APPLI_policy = APPLD_policy(), APPLE_policy(), APPLI_policy() 
@@ -189,7 +189,7 @@ def main(id):
                 actions = policy(obs_batch).act.cpu().detach().numpy().reshape(-1)
             """
             if p < eps:
-                actions = actions = APPLD_policy.forward(obs_x) 
+                actions = APPLD_policy.forward(obs_x) 
             else:
                 actions = policy(obs_batch).act.cpu().detach().numpy().reshape(-1)
             obs_new, rew, done, info = env.step(actions)

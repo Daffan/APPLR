@@ -28,8 +28,8 @@
     }
   },
   "training_config": {
-    "num_actor": 100,
-    "pre_collect": 20000,
+    "num_actor": 400,
+    "pre_collect": 40000,
     "pre_train": true,
     "actor_lr": 0.0005,
     "critic_lr": 0.001,
@@ -51,11 +51,11 @@
     "prioritized_replay": false,
     "alpha": 0.6,
     "beta": 0.4,
-    "epoch": 10,
-    "step_per_epoch": 4000,
+    "epoch": 100,
+    "step_per_epoch": 500,
     "collect_per_step": 10,
     "update_per_step": 1,
     "batch_size": 128,
-    "exploration_ratio": 0.6
+    "exploration_ratio": 0.2
     }
 }
