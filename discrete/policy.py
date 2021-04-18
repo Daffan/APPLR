@@ -1,4 +1,5 @@
 import torch
+from torch import nn
 import numpy as np
 from copy import deepcopy
 from typing import Dict, Union, Optional
@@ -6,6 +7,46 @@ from typing import Dict, Union, Optional
 from tianshou.policy import BasePolicy
 from tianshou.data import Batch, ReplayBuffer, to_torch_as, to_numpy
 
+class DuelingDQN(nn.Module):
+    def __init__(self, state_shape, action_shape, hidden_layer = [64, 64], cnn = True, feature_layer = [256]):
+        super().__init__()
+        if cnn:
+            self.feature = nn.Sequential(
+                nn.Linear(720, feature_layer[0]), nn.ReLU(inplace=True)
+                )
+            feature_shape = feature_layer[0] + int(np.log2(action_shape-1)) + 1
+        else:
+            self.feature = lambda x: x.view(x.shape[0], -1)
+            feature_shape = state_shape
+
+        layers = [np.prod(feature_shape)] + hidden_layer
+        self.value = []
+        self.advantage = []
+        for i, o in zip(layers[:-1], layers[1:]):
+            self.value.append(nn.Linear(i, o))
+            self.value.append(nn.ReLU(inplace=True))
+            self.advantage.append(nn.Linear(i, o))
+            self.advantage.append(nn.ReLU(inplace=True))
+        self.advantage.append(nn.Linear(o, np.prod(action_shape)))
+        self.value.append(nn.Linear(o, 1))
+
+        self.value = nn.Sequential(*self.value)
+        self.advantage = nn.Sequential(*self.advantage)
+
+    def forward(self, obs, state=None, info={}):
+        if not isinstance(obs, torch.Tensor):
+            obs = torch.tensor(obs, dtype=torch.float)
+        batch = obs.shape[0]
+        laser = obs.view(batch, 1, -1)[:,:,:720]
+        params = obs.view(batch, -1)[:, 720:]
+
+        embedding = self.feature(laser).view(batch, -1)
+        feature = torch.cat((embedding, params), dim = 1)
+
+        advantage = self.advantage(feature)
+        value = self.value(feature)
+        logits = value + advantage - advantage.mean(1, keepdim=True)
+        return logits, state
 
 class DQNPolicy(BasePolicy):
     """Implementation of Deep Q Network. arXiv:1312.5602
@@ -166,7 +207,7 @@ class DQNPolicy(BasePolicy):
         # c = lambda r, q: (r-q).pow(2)
         td = c(r, q)
         loss = (td * weight).mean()
-        batch.weight = r - q  # prio-buffer
+        batch.weight = loss  # prio-buffer
         loss.backward()
         if self.grad_norm_clipping:
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_norm_clipping)

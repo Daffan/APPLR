@@ -50,6 +50,7 @@ class Collector(object):
         succeed = []
         while steps < n_step:
             for id in self.ids:
+                time.sleep(0.1)
                 # c = self.ep_count[id]
                 base = join(BASE_PATH, 'actor_%d' %(id))
                 try:
@@ -73,6 +74,6 @@ class Collector(object):
                         os.remove(join(base, t))
                     except:
                         pass
-        return {'n/st': n_step, 'n/stt': steps, 'ep_rew': sum(ep_rew)/len(ep_rew), 'ep_len': sum(ep_len)/len(ep_len), 'succeed': sum(succeed)/len(succeed)}
+        return {'n/st': steps, 'n/stt': steps, 'ep_rew': sum(ep_rew)/len(ep_rew), 'ep_len': sum(ep_len)/len(ep_len), 'succeed': sum(succeed)/len(succeed)}
 
 

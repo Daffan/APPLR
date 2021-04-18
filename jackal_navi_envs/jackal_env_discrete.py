@@ -17,7 +17,7 @@ from .gazebo_simulation import GazeboSimulation
 from .navigation_stack import  NavigationStack
 
 gym.logger.set_level(40)
-
+RADIUS = 0.075
 range_dict = {
     'max_vel_x': [0.1, 2],
     'max_vel_theta': [0.314, 3.14],
@@ -52,10 +52,14 @@ class JackalEnvDiscrete(gym.Env):
             path = np.load(join(base, 'path_files', 'path_%d.npy' % world_id))
             init_x, init_y = self.path_coord_to_gazebo_coord(*path[0])
             goal_x, goal_y = self.path_coord_to_gazebo_coord(*path[-1])
-            # init_x -= 1
+            if init_x > -0.5:
+                init_x = -0.5
+            if init_x < -3.9:
+                init_x = -3.9
             init_y -= 1
             goal_x -= init_x
-            goal_y -= (init_y-5)
+            goal_y += 2 * RADIUS * 2
+            goal_y -= (init_y)
             self.init_position = [init_x, init_y, np.pi/2]
             self.goal_position = [goal_x, goal_y, 0] # Here is a rotational transformation only in the container
 
@@ -66,23 +70,34 @@ class JackalEnvDiscrete(gym.Env):
                 len(param_delta) == len(param_list), 'length of params should match'
 
         # Launch gazebo and navigation demo
-        # Should have the system enviroment source to jackal_helper
+        # Should have the system environment source to jackal_helper
+        #if init_world:
+        #    rospack = rospkg.RosPack()
+        #    BASE_PATH = rospack.get_path('jackal_helper')
+        #    self.gazebo_process = subprocess.Popen(['roslaunch', \
+        #                                            os.path.join(BASE_PATH, 'launch', 'jackal_world_navigation.launch'),
+        #                                            'world_name:=' + world_name,
+        #                                            'gui:=' + gui,
+        #                                            'VLP16:=' + VLP16,
+        #                                            'camera:=' + camera,
+        #                                            'verbose:=' + verbose
+        #                                            ])
+        #    time.sleep(10)
+
+        self.uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
+        roslaunch.configure_logging(self.uuid)
+
         if init_world:
-            rospack = rospkg.RosPack()
-            BASE_PATH = rospack.get_path('jackal_helper')
-            self.gazebo_process = subprocess.Popen(['roslaunch', \
-                                                    os.path.join(BASE_PATH, 'launch', 'jackal_world_navigation.launch'),
-                                                    'world_name:=' + world_name,
-                                                    'gui:=' + gui,
-                                                    'VLP16:=' + VLP16,
-                                                    'camera:=' + camera,
-                                                    'verbose:=' + verbose
-                                                    ])
-            time.sleep(10)
+            rospy.init_node('gym', anonymous=True, log_level=rospy.FATAL)
+            rospy.set_param('/use_sim_time', True)
 
-
-        rospy.set_param('/use_sim_time', True)
-        rospy.init_node('gym', anonymous=True, log_level=rospy.FATAL)
+        rospack = rospkg.RosPack()
+        BASE_PATH = rospack.get_path('jackal_helper')
+        args_list = [os.path.join(BASE_PATH, 'launch', 'jackal_world_navigation.launch'), 'world_name:=' + world_name,
+                    'gui:=' + gui, 'VLP16:=' + VLP16, 'camera:=' + camera, 'verbose:=' + verbose]
+        launch_files = [(roslaunch.rlutil.resolve_launch_arguments(args_list)[0], args_list[1:])]
+        self.parent = roslaunch.parent.ROSLaunchParent(self.uuid, launch_files)
+        self.parent.start()
 
         self.gazebo_sim = GazeboSimulation(init_position = self.init_position)
         self.navi_stack = NavigationStack(goal_position = self.goal_position)
@@ -215,10 +230,11 @@ class JackalEnvDiscrete(gym.Env):
         return state
 
     def close(self):
-        os.system("killall -9 rosmaster")
-        os.system("killall -9 gzclient")
-        os.system("killall -9 gzserver")
-        os.system("killall -9 roscore")
+        # os.system("killall -9 rosmaster")
+        # os.system("killall -9 gzclient")
+        # os.system("killall -9 gzserver")
+        # os.system("killall -9 roscore")
+        self.parent.shutdown()
 
 if __name__ == '__main__':
     env = GazeboJackalNavigationEnv()

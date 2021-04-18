@@ -2,7 +2,8 @@
   "section": "DQN_testbed",
   "seed": 43,
   "device": "cpu",
-  "use_container": false,
+  "use_container": true,
+  "env": "jackal",
   "env_config": {
     "world_name": "sequential_applr_testbed.world",
     "VLP16": "false",
