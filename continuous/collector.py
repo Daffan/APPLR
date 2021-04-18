@@ -3,6 +3,8 @@ import json
 import os
 import torch
 import time
+import logging
+import re
 import pickle
 
 BASE_PATH = join(os.getenv('HOME'), 'buffer')
@@ -31,7 +33,11 @@ class Collector(object):
     def update_policy(self):
         torch.save(self.policy.state_dict(), join(BASE_PATH, 'policy.pth'))
         with open(join(BASE_PATH, 'eps.txt'), 'w') as f:
-            f.write(str(self.policy._noise._sigma))
+            try:
+                std = self.policy._noise._sigma
+            except:
+                std = self.policy._noise
+            f.write(str(std))
 
     def buffer_expand(self, traj):
         for i in range(len(traj)):
@@ -39,6 +45,9 @@ class Collector(object):
             self.buffer.add(traj[i][0], traj[i][1], \
                             traj[i][2], traj[i][3], \
                             obs_next, traj[i][4])
+    
+    def natural_keys(self, text):
+        return int(re.split(r'(\d+)', text)[1])
 
     def collect(self, n_step):
         # collect happens after policy is updated
@@ -47,31 +56,38 @@ class Collector(object):
         ep_rew = []
         ep_len = []
         succeed = []
+        world = []
         while steps < n_step:
             for id in self.ids:
                 # c = self.ep_count[id]
                 base = join(BASE_PATH, 'actor_%d' %(id))
                 try:
-                    trajs = sorted(os.listdir(base))
+                    traj_files = os.listdir(base)
                 except:
-                    trajs = []
-                    # print('waiting actor %d to be initialized' %(id))
-                ct = len(trajs)
-                # self.ep_count[id] = ct
-                for t in trajs:
+                    traj_files = [] #["traj_0.pickle"]
+                #traj_files.sort(key=self.natural_keys)
+                #traj_files = traj_files[:-1] # skip the last one, prevnt error
+                for p in traj_files:
                     # t = 'traj_%d.pickle' %(i+1)
                     # print('read actor_%d %s' %(id, t))
                     try:
-                        with open(join(base, t), 'rb') as f:
-                            traj = pickle.load(f)
-                            ep_rew.append(sum([t[2] for t in traj]))
-                            ep_len.append(len(traj))
-                            succeed.append(int(traj[-1][-1]['succeed']))
-                            self.buffer_expand(traj)
-                            steps += len(traj)
-                        os.remove(join(base, t))
+                        target = join(base, p)
+                        if os.path.getsize(target) > 0:
+                            with open(target, 'rb') as f:
+                                traj = pickle.load(f)
+                                ep_rew.append(sum([t[2] for t in traj]))
+                                ep_len.append(len(traj))
+                                succeed.append(int(traj[-1][-1]['succeed']))
+                                world.append(traj[-1][-1]['world'])
+                                self.buffer_expand(traj)
+                                steps += len(traj)
+                            os.remove(join(base, p))
                     except:
+                        logging.exception('')
+                        print("failed to load actor_%s:%s" %(id, p))
+                        os.remove(join(base, p))
                         pass
-        return {'n/st': steps, 'n/stt': steps, 'ep_rew': sum(ep_rew)/len(ep_rew), 'ep_len': sum(ep_len)/len(ep_len), 'succeed': sum(succeed)/len(succeed)}
+        # return {'n/st': steps, 'n/stt': steps, 'ep_rew': sum(ep_rew)/len(ep_rew), 'ep_len': sum(ep_len)/len(ep_len), 'succeed': sum(succeed)/len(succeed)}
+        return {'n/st': steps, 'n/stt': steps, 'ep_rew': ep_rew, 'ep_len': ep_len, 'success': succeed, 'world': world}
 
 

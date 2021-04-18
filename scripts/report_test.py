@@ -13,7 +13,7 @@ import pickle
 
 BASE_PATH = join(os.getenv('HOME'), 'buffer_test')
 benchmarking_test = [0, 8, 17, 19, 27, 32, 41, 47, 48, 57, 64, 69, 76, 78, 88, 93, 100, 104, 112, 118, 123, 129, 133, 138, 144, 150, 159, 163, 168, 175, 184, 189, 193, 201, 208, 214, 218, 226, 229, 237, 240, 246, 256, 258, 265, 270, 277, 284, 290, 294]
-
+benchmarking_test = [i for i in list(range(300)) if i not in benchmarking_test]
 def main():
     def get_world_name(dirname):
         idx = benchmarking_test[int(dirname.split('_')[-1])]
@@ -21,6 +21,7 @@ def main():
 
 
     result = {}
+    '''
     for dirname, dirnames, filenames in os.walk(BASE_PATH):
         for d in dirnames:
             if d.startswith('actor'):
@@ -28,20 +29,33 @@ def main():
                 result['world_' + str(idx)] = {
                     'ep_return': [],
                     'ep_length': [],
-                    'succeed': []
+                    'succeed': [],
+                    'world': -1,
                 }
+    '''
+    empty = {'ep_return': [], 'ep_length': [], 'succeed': []}
     for dirname, dirnames, filenames in os.walk(BASE_PATH):
         for filename in filenames:
             p = join(dirname, filename)
             if p.endswith('.pickle'):
                 with open(p, 'rb') as f:
                     traj = pickle.load(f)
-                world = get_world_name(dirname)
-                result[world]['ep_return'].append(sum([t[2] for t in traj]))
-                result[world]['ep_length'].append(len(traj))
-                result[world]['succeed'].append(int(traj[-1][-1]['succeed']))
-
+                try:
+                    world = "world_%s" %(traj[-1][-1]['world'])
+                    log = result.get(world, empty.copy())
+                    log['ep_return'].append(sum([t[2] for t in traj]))
+                    log['ep_length'].append(len(traj))
+                    log['succeed'].append(int(traj[-1][-1]['succeed']))
+                    result[world] = log
+                except:
+                    pass
+    bad_trials = []
+    for w in result.keys():
+        if sum(result[w]['succeed'])==0:
+            bad_trials.append(w.split("_")[-1])
+    print("bad_trials", bad_trials)
     print('>>>>>>>>>>>>>>>>>>>>>>>>>>> Report <<<<<<<<<<<<<<<<<<<<<<<<<<<<')
+    print(len(result.keys()), result.keys())
     print('supported samples: %f per world' %(np.mean([len(result[k]['ep_return']) for k in result.keys()])))
     for k2 in ['ep_return', 'ep_length', 'succeed']:
         k1 = result.keys()

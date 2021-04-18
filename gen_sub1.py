@@ -4,7 +4,8 @@
 # There is an option to run central node locally (comment line 43, 44)
 ################################################################################
 
-import subprocess,re
+import subprocess
+import re
 import argparse
 import os
 import time
@@ -19,7 +20,7 @@ if not os.path.exists('out'):
     os.mkdir('out')
 
 cfile = open('central_node.sub', 'w')
-s = 'executable/run_central_nod.h'
+s = 'executable/run_central_node.sh'
 common_command = \
 "requirements = InMastodon \n\
 +Group = \"GRAD\" \n\
@@ -47,6 +48,7 @@ cfile.close()
 #time.sleep(10)
 
 cfile = open('condor.sub', 'w')
+
 s = 'executable/tester.sh' if args.test else 'executable/actor.sh'
 common_command = \
 "requirements = InMastodon \n\

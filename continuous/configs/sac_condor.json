@@ -1,0 +1,55 @@
+{
+  "section": "SAC",
+  "seed": 43,
+  "device": "cpu",
+  "use_container": true,
+  "env": "jackal",
+  "env_config": {
+    "world_name": "Benchmarking/train/world_1.world",
+    "VLP16": "false",
+    "gui": "false",
+    "max_step": 100,
+    "time_step": 1,
+    "laser_clip": 2,
+    "init_position": [-8, 0, 0],
+    "goal_position": [54, 0, 0],
+    "param_delta": [0.2, 0.3, 1, 2, 0.2, 0.2, 0.05],
+    "param_init": [0.5, 1.57, 6, 20, 0.75, 1, 0.3],
+    "param_list": ["max_vel_x", "max_vel_theta", "vx_samples", "vtheta_samples", "path_distance_bias", "goal_distance_bias", "inflation_radius"]
+  },
+  "wrapper_config": {
+    "wrapper": "bench_marking_wrapper_reward",
+    "wrapper_args": {
+      "goal_distance_reward": 0.5,
+      "stuck_punishment": 0,
+      "punishment_reward": -50,
+      "collision": 0.00,
+      "reward_scale": 1
+    }
+  },
+  "training_config": {
+    "num_actor": 800,
+    "pre_collect": 80000,
+    "actor_lr": 0.0002,
+    "critic_lr": 0.0005,
+    "gamma": 0.95,
+    "tau": 0.005,
+    "sac_alpha": 0.01,
+    "exploration_noise": 0,
+    "buffer_size": 400000,
+    "num_layers": 2,
+    "rew_norm": 1,
+    "ignore_done": false,
+    "hidden_size": 512,
+    "n_step": 4,
+    "prioritized_replay": false,
+    "alpha": 0.6,
+    "beta": 0.4,
+    "epoch": 10,
+    "step_per_epoch": 32000,
+    "collect_per_step": 10,
+    "update_per_step": 1,
+    "batch_size": 128,
+    "exploration_ratio": 0.5
+    }
+}

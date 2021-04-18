@@ -25,10 +25,10 @@ copyfile(policy_path_src, policy_path_dst)
 
 if args.test:
     os.environ['TEST_SET'] = 'test'
-    num_env = 50
+    num_env = 100
 else:
     os.environ['TEST_SET'] = 'train'
-    num_env 250
+    num_env = 600
 
-subprocess.Popen(["python3", "gen_sub1.py", "--num_env", str(num_env), "test"])
+subprocess.Popen(["python3", "gen_sub1.py", "--num_env", str(num_env), "--test"])
 

@@ -5,29 +5,33 @@ from os.path import join, dirname, abspath, exists
 import sys
 sys.path.append(dirname(dirname(abspath(__file__))))
 import jackal_navi_envs
+from jackal_navi_envs import range_dict
+from jackal_navi_envs.APPLX import APPLD_policy, APPLE_policy, APPLI_policy
 from torch import nn
 import torch
 import gym
 import numpy as np
 import random
 import time
-from policy import TD3Policy
-from tianshou.utils.net.common import Net
+from policy import TD3Policy, SACPolicy
+from tianshou.utils.net.common import Net as MLP
+from net import Net as CNN
 from tianshou.exploration import GaussianNoise
-from tianshou.utils.net.continuous import Actor, Critic
+from tianshou.utils.net.continuous import Actor, Critic, ActorProb
 from tianshou.data import Batch
+from utils import train_worlds, Benchmarking_train, Benchmarking_test, path_to_world
 
 random.seed(43)
-# This is an ordered benchmarking world index by the transveral time of default dwa
-benchmarking_train = [54, 94, 156, 68, 52, 101, 40, 135, 51, 42, 75, 67, 18, 53, 87, 36, 28, 61, 233, 25, 35, 20, 34, 79, 108, 46, 65, 90, 6, 73, 70, 10, 29, 167, 15, 31, 77, 116, 241, 155, 194, 99, 56, 149, 38, 261, 239, 234, 60, 173, 247, 178, 291, 16, 9, 21, 169, 257, 148, 296, 151, 259, 102, 145, 130, 205, 121, 105, 43, 242, 213, 171, 62, 202, 293, 224, 225, 152, 111, 55, 125, 200, 161, 1, 136, 106, 286, 139, 244, 230, 222, 238, 170, 267, 26, 132, 124, 23, 59, 3, 97, 119, 89, 12, 164, 39, 236, 263, 81, 188, 84, 11, 268, 192, 122, 22, 253, 219, 216, 137, 85, 195, 206, 212, 4, 274, 91, 248, 44, 131, 203, 63, 80, 37, 110, 50, 74, 120, 128, 249, 30, 14, 103, 49, 154, 82, 2, 143, 158, 147, 235, 83, 157, 142, 187, 185, 288, 45, 140, 271, 160, 146, 109, 223, 126, 98, 252, 134, 272, 115, 71, 117, 255, 141, 174, 33, 245, 92, 295, 281, 186, 260, 7, 166, 196, 66, 113, 153, 227, 107, 199, 298, 278, 114, 72, 165, 228, 176, 24, 162, 198, 180, 285, 232, 243, 207, 190, 262, 275, 172, 179, 269, 127, 86, 183, 273, 287, 215, 266, 95, 5, 299, 279, 13, 250, 96, 197, 177, 58, 289, 211, 220, 182, 282, 210, 280, 251, 283, 217, 276, 292, 221, 204, 191, 181, 209, 297, 264, 231, 254]
-# adjust the occurance by the difficulty level
-benchmarking_train = 1*benchmarking_train[20:50] + 2*benchmarking_train[50:150] + 4*benchmarking_train[150:200] + 2*benchmarking_train[200:240]
-benchmarking_train = benchmarking_train*3
-random.shuffle(benchmarking_train)
+train_worlds = train_worlds*100
+# random.shuffle(train_worlds)
 
 BASE_PATH = join(os.getenv('HOME'), 'buffer')
-
+APPLD_policy, APPLE_policy, APPLI_policy = APPLD_policy(), APPLE_policy(), APPLI_policy() 
 def init_actor(id):
+    import rospy
+    rospy.logwarn(">>>>>>>>>>>>>>>>>> actor id: %s <<<<<<<<<<<<<<<<<<" %(str(id)))
+    # rospy.init_node('gym', anonymous=True, log_level=rospy.FATAL)
+    # rospy.set_param('/use_sim_time', True)
     assert os.path.exists(BASE_PATH)
     actor_path = join(BASE_PATH, 'actor_%s' %(str(id)))
     if not exists(actor_path):
@@ -38,6 +42,7 @@ def init_actor(id):
         try:
             f = open(join(BASE_PATH, 'config.json'), 'rb')
         except:
+            rospy.logwarn("wait for critor to be initialized")
             time.sleep(2)
 
     config = json.load(f)
@@ -68,7 +73,12 @@ def load_model(model):
     model = model.float()
     # exploration noise std
     with open(join(BASE_PATH, 'eps.txt'), 'r') as f:
-        eps = float(f.readlines()[0])
+        eps = None
+        while eps is not None:
+            try:
+                eps = float(f.readlines()[0])
+            except IndexError:
+                pass
 
     return model, eps
 
@@ -76,29 +86,42 @@ def write_buffer(traj, ep, id):
     with open(join(BASE_PATH, 'actor_%s' %(str(id)), 'traj_%d.pickle' %(ep)), 'wb') as f:
         pickle.dump(traj, f)
 
+def get_random_action():
+    actions = []
+    for k in range_dict.keys():
+        maxlimit = range_dict[k][1]
+        minlimit = range_dict[k][0]
+        p = random.random()
+        actions.append(minlimit+p*(maxlimit-minlimit))
+    return actions
+
 def main(id):
 
     config = init_actor(id)
     env_config = config['env_config']
     if env_config['world_name'] != "sequential_applr_testbed.world":
-        env_config['world_name'] = 'Benchmarking/train/world_%d.world' %(benchmarking_train[id])
-        assert os.path.exists('/jackal_ws/src/jackal_helper/worlds/Benchmarking/train/world_%d.world' %(benchmarking_train[id]))
+        assert os.path.exists(join("/jackal_ws/src/jackal_helper/worlds", path_to_world(train_worlds[id])))
+        env_config['world_name'] = path_to_world(train_worlds[id])
     wrapper_config = config['wrapper_config']
     training_config = config['training_config']
     wrapper_dict = jackal_navi_envs.jackal_env_wrapper.wrapper_dict
-    if config['env'] == 'jackal':
-        env = wrapper_dict[wrapper_config['wrapper']](gym.make('jackal_continuous-v0', **env_config), **wrapper_config['wrapper_args'])
-    else:
-        env = gym.make('Pendulum-v0')
+    env = wrapper_dict[wrapper_config['wrapper']](gym.make(config["env"], **env_config), **wrapper_config['wrapper_args'])
     state_shape = env.observation_space.shape or env.observation_space.n
     action_shape = env.action_space.shape or env.action_space.n
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    Net = CNN if training_config["cnn"] == True else MLP
     net = Net(training_config['num_layers'], state_shape, device=device, hidden_layer_size=training_config['hidden_size'])
-    actor = Actor(
-        net, action_shape,
-        1, device, hidden_layer_size=training_config['hidden_size']
-    ).to(device)
+    if config['section'] == 'SAC':
+        actor = ActorProb(
+            net, action_shape,
+            1, device, hidden_layer_size=training_config['hidden_size']
+        ).to(device)
+    else:
+        actor = Actor(
+            net, action_shape,
+            1, device, hidden_layer_size=training_config['hidden_size']
+        ).to(device)    
     actor_optim = torch.optim.Adam(actor.parameters(), lr=training_config['actor_lr'])
     net = Net(training_config['num_layers'], state_shape,
               action_shape, concat=True, device=device, hidden_layer_size=training_config['hidden_size'])
@@ -106,41 +129,107 @@ def main(id):
     critic1_optim = torch.optim.Adam(critic1.parameters(), lr=training_config['critic_lr'])
     critic2 = Critic(net, device, hidden_layer_size=training_config['hidden_size']).to(device)
     critic2_optim = torch.optim.Adam(critic2.parameters(), lr=training_config['critic_lr'])
-    policy = TD3Policy(
-        actor, actor_optim, critic1, critic1_optim, critic2, critic2_optim,
-        action_range=[env.action_space.low, env.action_space.high],
-        tau=training_config['tau'], gamma=training_config['gamma'],
-        exploration_noise=GaussianNoise(sigma=training_config['exploration_noise']),
-        policy_noise=training_config['policy_noise'],
-        update_actor_freq=training_config['update_actor_freq'],
-        noise_clip=training_config['noise_clip'],
-        reward_normalization=training_config['rew_norm'],
-        ignore_done=training_config['ignore_done'],
-        estimation_step=training_config['n_step'])
+
+    if config['section'] == 'SAC':
+        policy = SACPolicy(
+            actor, actor_optim, critic1, critic1_optim, critic2, critic2_optim,
+            action_range=[env.action_space.low, env.action_space.high],
+            tau=training_config['tau'], gamma=training_config['gamma'],
+            reward_normalization=training_config['rew_norm'],
+            ignore_done=training_config['ignore_done'],
+            alpha=training_config['sac_alpha'],
+            exploration_noise=None,
+            estimation_step=training_config['n_step'])
+    else:
+        policy = TD3Policy(
+            actor, actor_optim, critic1, critic1_optim, critic2, critic2_optim,
+            action_range=[env.action_space.low, env.action_space.high],
+            tau=training_config['tau'], gamma=training_config['gamma'],
+            exploration_noise=GaussianNoise(sigma=training_config['exploration_noise']),
+            policy_noise=training_config['policy_noise'],
+            update_actor_freq=training_config['update_actor_freq'],
+            noise_clip=training_config['noise_clip'],
+            reward_normalization=training_config['rew_norm'],
+            ignore_done=training_config['ignore_done'],
+            estimation_step=training_config['n_step'])
+
     print(env.action_space.low, env.action_space.high)
+    print(">>>>>>>>>>>>>> Running on world_%d <<<<<<<<<<<<<<<<" %(train_worlds[id]))
     ep = 0
     while True:
         obs = env.reset()
+        gp = env.gp
+        scan = env.scan
         obs_batch = Batch(obs=[obs], info={})
         ep += 1
         traj = []
+        ctcs = []
         done = False
         count = 0
         policy, eps = load_model(policy)
-        policy.set_exp_noise(GaussianNoise(sigma=eps))
+        try:
+            policy.set_exp_noise(GaussianNoise(sigma=eps))
+        except:
+            pass
         while not done:
             time.sleep(0.01)
             p = random.random()
             obs = torch.tensor([obs]).float()
-            actions = policy(obs_batch).act.cpu().detach().numpy()
-            #actions = np.array([0.5, 1.57, 6, 20, 0.3])
-            obs_new, rew, done, info = env.step(actions.reshape(-1))
+            # actions = np.array([0.5, 1.57, 6, 20, 0.8, 1, 0.3])
+            #else:
+            obs_x = [scan, gp]
+            """
+            if p < eps/3.:
+                actions = APPLD_policy.forward(obs_x)
+                print("APPLD", actions)
+            elif p < 2*eps/3.:
+                actions = APPLI_policy.forward(obs_x)
+                print("APPLI", actions)
+            elif p < eps:
+                actions = APPLE_policy.forward(obs_x)
+                print("APPLE", actions)
+            else:
+                actions = policy(obs_batch).act.cpu().detach().numpy().reshape(-1)
+            if p < eps:
+                if train_worlds[id] in [74, 271, 213, 283, 265, 273, 137, 209, 194]:
+                    actions = APPLI_policy.forward(obs_x)
+                elif train_worlds[id] in [293, 105, 153, 292, 254, 221, 245]:
+                    actions = APPLD_policy.forward(obs_x) 
+            """
+            if p<eps:
+                actions = get_random_action()
+                actions = np.array(actions)
+            else:
+                actions = policy(obs_batch).act.cpu().detach().numpy().reshape(-1)
+            ctc = critic1(obs, torch.tensor([actions]).float()).cpu().detach().numpy().reshape(-1)[0]
+            ctcs.append(ctc)
+            obs_new, rew, done, info = env.step(actions)
             count += 1
+            gp = info.pop("gp")
+            scan = info.pop("scan")
+            info["world"] = train_worlds[id]
             traj.append([obs, actions, rew, done, info])
             obs_batch = Batch(obs=[obs_new], info={})
             obs = obs_new
-        # print('count: %d, rew: %f' %(count, rew))
-        write_buffer(traj, ep, id)
+            #print(rew, done, info)
+
+        """
+        # filter the traj that has lower discounted reward as it predicted by the critic
+        if p < eps:
+            def compute_discouted_rew(rew, gamma):
+                return sum([r*(gamma**i) for i, r in enumerate(rew)])
+            rews = [t[2] for t in traj]
+            discounted_rew = [compute_discouted_rew(rews[i:], training_config["gamma"]) for i in range(len(rews))]
+            assert len(ctcs) == len(discounted_rew)
+            use = [r > c for r, c in zip(discounted_rew, ctcs)]
+            traj_new = [t for u, t in zip(use, traj) if u]
+        else:
+            traj_new = traj
+        """
+        traj_new = traj
+        if len(traj_new) > 0:
+            write_buffer(traj_new, ep, id)
+        # write_buffer(traj, ep, id)
 
 if __name__ == '__main__':
     import argparse

@@ -115,9 +115,9 @@ class BenchMarkingWrapper(gym.Wrapper):
 
 class BenchMarkingWrapperReward(gym.Wrapper):
 
-    def __init__(self, env, goal_distance_reward = 2, success_reward = 10, \
-                smoothness = 0.1, prevent_extreme = 0.1, stuck_punishment = 0.1, \
-                punishment_reward = -100, collision = 0.1, reward_scale = 1):
+    def __init__(self, env, goal_distance_reward = 0, success_reward = 10, \
+                smoothness = 0, prevent_extreme = 0, stuck_punishment = 0, \
+                punishment_reward = -100, collision = 0, reward_scale = 1):
         '''A wrapper that will shape the reward by the length of the globle path. The robot flip over
         will terminate and return a large negative reward. Some more reward functions are added
         args:
@@ -178,10 +178,10 @@ class BenchMarkingWrapperReward(gym.Wrapper):
             if d < 0.1:
                 rew -= self.collision/(d+0.01)
 
-        if position.z > 0.1: # or not info['succeed']:
-            done = True
-            rew += self.punishment_reward
-            info['succeed'] = False
+        # if position.z > 0.1: # or not info['succeed']:
+        #     done = True
+        #     rew += self.punishment_reward
+        #     info['succeed'] = False
 
         if position.y > 10:
             done = True

@@ -8,6 +8,8 @@ discrete/configs/*
 continuous/buffer_test
 continuous/results
 
+sac/results
+
 __pycache__
 
 continuous/buffer_test*
@@ -16,4 +18,4 @@ out
 
 *.sub
 
-APPLR_melodic.simg
+*.simg

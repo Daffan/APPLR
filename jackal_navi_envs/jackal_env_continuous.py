@@ -16,6 +16,10 @@ from gym.utils import seeding
 from .gazebo_simulation import GazeboSimulation
 from .navigation_stack import  NavigationStack
 
+from os.path import join, dirname, abspath
+import sys
+sys.path.append(dirname(dirname(abspath(__file__))))
+from continuous.utils import range_dict
 gym.logger.set_level(40)
 '''
 range_dict = {
@@ -27,7 +31,7 @@ range_dict = {
     'goal_distance_bias': [0.5, 1.5],
     'inflation_radius': [0.1, 0.5]
 }
-'''
+
 # range_dict defines the possible range of the parameters. 
 # also the range the policy could set the parameters. 
 range_dict = {
@@ -39,7 +43,7 @@ range_dict = {
     'goal_distance_bias': [0.1, 2],
     'inflation_radius': [0.1, 0.6]
 }
-
+'''
 class JackalEnvContinuous(gym.Env):
 
     def __init__(self, world_name = 'sequential_applr_testbe.world', VLP16 = 'false', gui = 'false', camera = 'false',
@@ -97,6 +101,7 @@ class JackalEnvContinuous(gym.Env):
 
         # Launch gazebo and navigation demo
         # Should have the system enviroment source to jackal_helper
+        rospy.logwarn(">>>>>>>>>>>>>>>>>> Load world: %s <<<<<<<<<<<<<<<<<<" %(world_name))
         rospack = rospkg.RosPack()
         BASE_PATH = rospack.get_path('jackal_helper')
         self.gazebo_process = subprocess.Popen(['roslaunch', \
@@ -108,10 +113,22 @@ class JackalEnvContinuous(gym.Env):
                                                 'verbose:=' + 'true' 
                                                 ])
         time.sleep(10)
+        
+        # self.uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
+        # roslaunch.configure_logging(self.uuid)
 
+        # rospack = rospkg.RosPack()
+        # BASE_PATH = rospack.get_path('jackal_helper')
+        # args_list = [os.path.join(BASE_PATH, 'launch', 'jackal_world_navigation.launch'), 'world_name:=' + world_name,
+        #                     'gui:=' + gui, 'VLP16:=' + VLP16, 'camera:=' + camera, 'verbose:=' + 'false']
+        # launch_files = [(roslaunch.rlutil.resolve_launch_arguments(args_list)[0], args_list[1:])]
+        # self.parent = roslaunch.parent.ROSLaunchParent(self.uuid, launch_files)
+        # self.parent.start()
 
-        rospy.set_param('/use_sim_time', True)
         rospy.init_node('gym', anonymous=True, log_level=rospy.FATAL)
+        rospy.set_param('/use_sim_time', True)
+        # rospy.set_param("/move_base/global_costmap/rolling_window", True)
+        # rospy.set_param("/move_base/global_costmap/static_map", False)
 
         self.gazebo_sim = GazeboSimulation(init_position = self.init_position)
         self.navi_stack = NavigationStack(goal_position = self.goal_position)
@@ -160,7 +177,9 @@ class JackalEnvContinuous(gym.Env):
         for pn in self.param_list:
             params.append(self.navi_stack.get_navi_param(pn))
             params_normal.append((params[-1]-float(range_dict[pn][1])/2)/float(range_dict[pn][1])) #normalize to [-0.5, 0.5]
-        state = np.concatenate([(scan_ranges-self.laser_clip/2)/self.laser_clip, (local_goal_position)/np.pi, np.array(params_normal)])
+        state = np.concatenate([(scan_ranges-self.laser_clip/2)/self.laser_clip,\
+                                (local_goal_position)/np.pi, \
+                                np.array(params_normal)])
 
         # check the robot distance to the goal position
         pr = np.array([self.navi_stack.robot_config.X, self.navi_stack.robot_config.Y])
@@ -200,7 +219,7 @@ class JackalEnvContinuous(gym.Env):
         self.step_count+=1
 
         # Unpause the world
-        self.gazebo_sim.unpause()
+        # self.gazebo_sim.unpause()
 
         # Sleep for 5s (a hyperparameter that can be tuned)
         rospy.sleep(self.time_step)
@@ -210,7 +229,7 @@ class JackalEnvContinuous(gym.Env):
         local_goal = self.navi_stack.get_local_goal()
 
         # Pause the simulation world
-        self.gazebo_sim.pause()
+        # self.gazebo_sim.pause()
 
         return self._observation_builder(laser_scan, local_goal)
 
@@ -226,7 +245,7 @@ class JackalEnvContinuous(gym.Env):
             self.navi_stack.set_navi_param(pn, init)
 
         # Unpause simulation to make observation
-        self.gazebo_sim.unpause()
+        # self.gazebo_sim.unpause()
 
         #read laser data
         self.navi_stack.clear_costmap()
@@ -236,8 +255,10 @@ class JackalEnvContinuous(gym.Env):
         laser_scan = self.gazebo_sim.get_laser_scan()
         local_goal = self.navi_stack.get_local_goal()
         self.navi_stack.set_global_goal()
+        self.scan = laser_scan.ranges
+        self.gp = self.navi_stack.get_global_path()
 
-        self.gazebo_sim.pause()
+        # self.gazebo_sim.pause()
 
         state, _, _, _ = self._observation_builder(laser_scan, local_goal)
 
@@ -248,11 +269,53 @@ class JackalEnvContinuous(gym.Env):
         os.system("killall -9 gzclient")
         os.system("killall -9 gzserver")
         os.system("killall -9 roscore")
+        # self.parent.shutdown()
+
+class JackalEnvContinuousNoParam(JackalEnvContinuous):
+    '''
+    The environment that will not have params from previous time step as observation.
+    '''
+    def __init__(self, **kwargs):
+        super(JackalEnvContinuousNoParam, self).__init__(**kwargs)
+        if self.VLP16:
+            self.observation_space = spaces.Box(low=np.array([-1]*(2095)), # a hard coding here
+                                                high=np.array([1]*(2095)),
+                                                dtype=np.float32)
+        else:
+            self.observation_space = spaces.Box(low=np.array([-1]*721), # a hard coding here
+                                                high=np.array([1]*721),
+                                                dtype=np.float32)
+
+    def _observation_builder(self, laser_scan, local_goal):
+        '''
+        Observation is the laser scan, local goal and all the values of paramters. 
+        Episode ends when the between gobal goal and robot positon is less than 0.4m. 
+        Reward is set to -1 for each step
+        '''
+        scan_ranges = np.array(laser_scan.ranges)
+        scan_ranges[scan_ranges > self.laser_clip] = self.laser_clip
+        local_goal_position = np.array([np.arctan2(local_goal.position.y, local_goal.position.x)])
+        params = []
+        for pn in self.param_list:
+            params.append(self.navi_stack.get_navi_param(pn))
+        state = np.concatenate([(scan_ranges-self.laser_clip/2)/self.laser_clip, (local_goal_position)/np.pi])
+
+        # check the robot distance to the goal position
+        pr = np.array([self.navi_stack.robot_config.X, self.navi_stack.robot_config.Y])
+        gpl = np.array(self.goal_position[:2])
+        self.gp_len = np.sqrt(np.sum((pr-gpl)**2))
+        # terminate when the ditance is less than 0.4 meter or
+        # exceed the maximal time step
+        if self.gp_len < 0.4 or self.step_count >= self.max_step:
+            done = True
+        else:
+            done = False
+
+        return state, -self.time_step, done, {'params': params, 'succeed': self.step_count < self.max_step, "scan": laser_scan.ranges, "gp": self.navi_stack.get_global_path()}
 
 if __name__ == '__main__':
     env = GazeboJackalNavigationEnv()
     env.reset()
     print(env.step(0))
-    env.unpause()
     time.sleep(30)
     env.close()
