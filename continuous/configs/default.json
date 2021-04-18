@@ -22,21 +22,21 @@
     "wrapper_args": {
       "goal_distance_reward": 0.5,
       "stuck_punishment": 0,
-      "punishment_reward": -100,
+      "punishment_reward": -50,
       "collision": 0.00,
       "reward_scale": 1
     }
   },
   "training_config": {
-    "num_actor": 400,
+    "num_actor": 300,
     "pre_collect": 40000,
-    "pre_train": true,
+    "pre_train": "continuous/results/SAC_2021_03_13_22_53/policy.pth",
     "actor_lr": 0.0005,
     "critic_lr": 0.001,
     "gamma": 0.95,
     "tau": 0.005,
-    "sac_alpha": 0.01,
-    "exploration_noise": 0.8,
+    "sac_alpha": 0,
+    "exploration_noise": 1,
     "policy_noise": 0.2,
     "noise_clip": 0.5,
     "update_actor_freq": 50,
@@ -52,10 +52,10 @@
     "alpha": 0.6,
     "beta": 0.4,
     "epoch": 100,
-    "step_per_epoch": 500,
+    "step_per_epoch": 4000,
     "collect_per_step": 10,
     "update_per_step": 1,
     "batch_size": 128,
-    "exploration_ratio": 0.2
+    "exploration_ratio": 1
     }
 }

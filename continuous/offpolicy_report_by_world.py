@@ -99,13 +99,15 @@ def offpolicy_trainer(
                 global_step += n_step 
                 n_step = np.clip(n_step, 10, 5000)
                 for i in range(update_per_step * min(n_step // collect_per_step, t.total - t.n)):
+                # for i in range(update_per_step):# * min(n_step // collect_per_step, t.total - t.n)):
                     losses = policy.update(batch_size, train_collector.buffer)
                     update_step += 1
-                    for k in result[0].keys():
-                        data[k] = f"{np.mean([r[k] for r in result]):.2f}"
-                        if writer and update_step % log_interval == 0:
-                            writer.add_scalar('train/' + k, np.mean([r[k] for r in results]),
-                                              global_step=global_step)
+                    if len(result) > 0:
+                        for k in result[0].keys():
+                            data[k] = f"{np.mean([r[k] for r in result]):.2f}"
+                            if writer and update_step % log_interval == 0:
+                                writer.add_scalar('train/' + k, np.mean([r[k] for r in results]),
+                                                  global_step=global_step)
                     for k in losses.keys():
                         if stat.get(k) is None:
                             stat[k] = MovAvg()

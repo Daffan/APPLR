@@ -5,6 +5,7 @@ from os.path import join, dirname, abspath, exists
 import sys
 sys.path.append(dirname(dirname(abspath(__file__))))
 import jackal_navi_envs
+from jackal_navi_envs.APPLX import APPLD_policy, APPLE_policy, APPLI_policy
 
 from policy import TD3Policy, SACPolicy
 from tianshou.utils.net.common import Net
@@ -23,18 +24,30 @@ from utils import Benchmarking_train, Benchmarking_test, path_to_world
 
 random.seed(43)
 SET = os.getenv("TEST_SET")
-benchmarking_test = Benchmarking_test
+worlds = Benchmarking_test*2
 if SET != 'test':
-    benchmarking_test = Benchmarking_train
-    assert len(benchmarking_test)==250
+    worlds = list(range(300))*2
+    assert len(worlds)==600
 
 BASE_PATH = join(os.getenv('HOME'), 'buffer_test')
 
+APPLD_policy = APPLD_policy()
+APPLE_policy = APPLE_policy()
+APPLI_policy = APPLI_policy()
+APPLX = {
+    "appld": lambda obs: APPLD_policy.forward(obs), 
+    "appli": lambda obs: APPLI_policy.forward(obs),
+    "apple": lambda obs: APPLE_policy.forward(obs),
+    "dwa": lambda obs: np.array([0.5, 1.57, 6, 20, 0.1, 0.75, 1, 0.3]),
+    "random": lambda obs: np.array([np.random.uniform(range_dict[k][0], range_dict[k][1]) for k in range_dict.keys()])
+}
+
 def init_actor(id):
     assert os.path.exists(BASE_PATH)
-    import rospy
-    rospy.init_node('gym', anonymous=True, log_level=rospy.FATAL)
-    rospy.set_param('/use_sim_time', True)
+    # import rospy
+    # rospy.init_node('gym', anonymous=True, log_level=rospy.FATAL)
+    # rospy.set_param('/use_sim_time', True)
+    assert os.path.exists(BASE_PATH)
     actor_path = join(BASE_PATH, 'actor_%s' %(str(id)))
     if not exists(actor_path):
         os.mkdir(actor_path) # path to store all the trajectories
@@ -63,12 +76,14 @@ def write_buffer(traj, ep, id):
     with open(join(BASE_PATH, 'actor_%s' %(str(id)), 'traj_%d.pickle' %(ep)), 'wb') as f:
         pickle.dump(traj, f)
 
-def main(id, avg, default):
+
+def main(id, avg, applx):
 
     config = init_actor(id)
     env_config = config['env_config']
     if env_config['world_name'] != "sequential_applr_testbed.world":
-        assert os.path.exists(path_to_world(benchmarking_train[id]))
+        assert os.path.exists(join("/jackal_ws/src/jackal_helper/worlds", path_to_world(worlds[id])))
+        env_config['world_name'] = path_to_world(worlds[id])
     wrapper_config = config['wrapper_config']
     training_config = config['training_config']
     wrapper_dict = jackal_navi_envs.jackal_env_wrapper.wrapper_dict
@@ -120,9 +135,12 @@ def main(id, avg, default):
             ignore_done=training_config['ignore_done'],
             estimation_step=training_config['n_step'])
     print(env.action_space.low, env.action_space.high)
+    print(">>>>>>>>>>>>>> Running on world_%d <<<<<<<<<<<<<<<<" %(worlds[id]))
     ep = 0
     for _ in range(avg):
         obs = env.reset()
+        gp = env.gp
+        scan = env.scan
         obs_batch = Batch(obs=[obs], info={})
         ep += 1
         traj = []
@@ -130,14 +148,17 @@ def main(id, avg, default):
         count = 0
         policy = load_model(policy)
         while not done:
-            if not default:
+            obs_x = [scan, gp]
+            if not applx:
                 actions = policy(obs_batch).act.cpu().detach().numpy().reshape(-1)
             else:
-                actions = np.array([0.5, 1.57, 6, 20, 0.75, 1, 0.3])
+                actions = APPLX[applx](obs_x)
             obs_new, rew, done, info = env.step(actions)
             count += 1
-            info["world"] = benchmarking_test[id]
-            traj.append([obs, actions, rew, done, info])
+            info["world"] = worlds[id]
+            gp = info.pop("gp")
+            scan = info.pop("scan")
+            traj.append([obs, actions, rew, done, {"world": worlds[id], "succeed": info["succeed"]}])
             obs_batch = Batch(obs=[obs_new], info={})
             obs = obs_new
         # print('count: %d, rew: %f' %(count, rew))
@@ -148,10 +169,10 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description = 'start an actor')
     parser.add_argument('--id', dest='actor_id', type = int, default = 1)
-    parser.add_argument('--avg', dest='avg', type = int, default = 20)
-    parser.add_argument('--default', dest='default', type = bool, default = False)
+    parser.add_argument('--avg', dest='avg', type = int, default = 10)
+    parser.add_argument('--APPLX', dest='applx', type = str, default = "dwa")
 
     id = parser.parse_args().actor_id
-    default = parser.parse_args().default
+    applx = parser.parse_args().applx
     avg = parser.parse_args().avg
-    main(id, avg, default)
+    main(id, avg, applx)

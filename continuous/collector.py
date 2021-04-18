@@ -84,8 +84,8 @@ class Collector(object):
                             os.remove(join(base, p))
                     except:
                         logging.exception('')
-                        #print("failed to load actor_%s:%s" %(id, p))
-                        #os.remove(join(base, p))
+                        print("failed to load actor_%s:%s" %(id, p))
+                        os.remove(join(base, p))
                         pass
         # return {'n/st': steps, 'n/stt': steps, 'ep_rew': sum(ep_rew)/len(ep_rew), 'ep_len': sum(ep_len)/len(ep_len), 'succeed': sum(succeed)/len(succeed)}
         return {'n/st': steps, 'n/stt': steps, 'ep_rew': ep_rew, 'ep_len': ep_len, 'success': succeed, 'world': world}

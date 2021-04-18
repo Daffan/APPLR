@@ -1,7 +1,6 @@
 from os.path import join, dirname, abspath
 import sys
 sys.path.append(dirname(dirname(abspath(__file__))))
-import jackal_navi_envs
 from utils import range_dict
 
 import gym
@@ -60,7 +59,7 @@ with open(os.path.join(save_path, 'config.json'), 'w') as fp:
     json.dump(config, fp, indent=4)
 
 # initialize the env --> num_env can only be one right now
-wrapper_dict = jackal_navi_envs.jackal_env_wrapper.wrapper_dict
+# wrapper_dict = jackal_navi_envs.jackal_env_wrapper.wrapper_dict
 if not config['use_container']:
     env = wrapper_dict[wrapper_config['wrapper']](gym.make(config["env"], **env_config), **wrapper_config['wrapper_args'])
     train_envs = DummyVectorEnv([lambda: env for _ in range(1)])
@@ -131,9 +130,8 @@ else:
         ignore_done=training_config['ignore_done'],
         estimation_step=training_config['n_step'])
 
-model_path = "continuous/policy.pth"
 if training_config["pre_train"]:
-    state_dict = torch.load(model_path, map_location=torch.device('cpu'))
+    state_dict = torch.load(training_config["pre_train"], map_location=torch.device('cpu'))
     policy.load_state_dict(state_dict)
 
 if training_config['prioritized_replay']:
@@ -143,15 +141,16 @@ if training_config['prioritized_replay']:
 else:
     buf = ReplayBuffer(training_config['buffer_size'])
 
-train_collector = Collector(policy, train_envs, buf)
-train_collector.collect(n_step=training_config['pre_collect'])
-
 if config['section'] == 'SAC': 
     train_fn = lambda e: [policy.set_exp_noise(max(0, training_config['exploration_noise']*(1-(e-1)/training_config['epoch']/training_config['exploration_ratio']))), \
                       torch.save(policy.state_dict(), os.path.join(save_path, 'policy.pth'))]
 else:
     train_fn = lambda e: [policy.set_exp_noise(GaussianNoise(sigma=(max(0.02, training_config['exploration_noise']*(1-(e-1)/training_config['epoch']/training_config['exploration_ratio']))))), \
                       torch.save(policy.state_dict(), os.path.join(save_path, 'policy.pth'))]
+
+train_fn(0) # set the eps for exploration
+train_collector = Collector(policy, train_envs, buf)
+train_collector.collect(n_step=training_config['pre_collect'])
 
 result = offpolicy_trainer(
         policy, train_collector, training_config['epoch'],

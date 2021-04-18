@@ -23,7 +23,7 @@ from utils import train_worlds, Benchmarking_train, Benchmarking_test, path_to_w
 
 random.seed(43)
 train_worlds = train_worlds*100
-random.shuffle(train_worlds)
+# random.shuffle(train_worlds)
 
 BASE_PATH = join(os.getenv('HOME'), 'buffer')
 APPLD_policy, APPLE_policy, APPLI_policy = APPLD_policy(), APPLE_policy(), APPLI_policy() 
@@ -73,7 +73,12 @@ def load_model(model):
     model = model.float()
     # exploration noise std
     with open(join(BASE_PATH, 'eps.txt'), 'r') as f:
-        eps = float(f.readlines()[0])
+        eps = None
+        while eps is not None:
+            try:
+                eps = float(f.readlines()[0])
+            except IndexError:
+                pass
 
     return model, eps
 
@@ -158,6 +163,7 @@ def main(id):
         obs_batch = Batch(obs=[obs], info={})
         ep += 1
         traj = []
+        ctcs = []
         done = False
         count = 0
         policy, eps = load_model(policy)
@@ -170,9 +176,6 @@ def main(id):
             p = random.random()
             obs = torch.tensor([obs]).float()
             # actions = np.array([0.5, 1.57, 6, 20, 0.8, 1, 0.3])
-            #if p<eps:
-            #    actions = get_random_action()
-            #    actions = np.array(actions)
             #else:
             obs_x = [scan, gp]
             """
@@ -187,11 +190,19 @@ def main(id):
                 print("APPLE", actions)
             else:
                 actions = policy(obs_batch).act.cpu().detach().numpy().reshape(-1)
-            """
             if p < eps:
-                actions = APPLD_policy.forward(obs_x) 
+                if train_worlds[id] in [74, 271, 213, 283, 265, 273, 137, 209, 194]:
+                    actions = APPLI_policy.forward(obs_x)
+                elif train_worlds[id] in [293, 105, 153, 292, 254, 221, 245]:
+                    actions = APPLD_policy.forward(obs_x) 
+            """
+            if p<eps:
+                actions = get_random_action()
+                actions = np.array(actions)
             else:
                 actions = policy(obs_batch).act.cpu().detach().numpy().reshape(-1)
+            ctc = critic1(obs, torch.tensor([actions]).float()).cpu().detach().numpy().reshape(-1)[0]
+            ctcs.append(ctc)
             obs_new, rew, done, info = env.step(actions)
             count += 1
             gp = info.pop("gp")
@@ -201,7 +212,24 @@ def main(id):
             obs_batch = Batch(obs=[obs_new], info={})
             obs = obs_new
             #print(rew, done, info)
-        write_buffer(traj, ep, id)
+
+        """
+        # filter the traj that has lower discounted reward as it predicted by the critic
+        if p < eps:
+            def compute_discouted_rew(rew, gamma):
+                return sum([r*(gamma**i) for i, r in enumerate(rew)])
+            rews = [t[2] for t in traj]
+            discounted_rew = [compute_discouted_rew(rews[i:], training_config["gamma"]) for i in range(len(rews))]
+            assert len(ctcs) == len(discounted_rew)
+            use = [r > c for r, c in zip(discounted_rew, ctcs)]
+            traj_new = [t for u, t in zip(use, traj) if u]
+        else:
+            traj_new = traj
+        """
+        traj_new = traj
+        if len(traj_new) > 0:
+            write_buffer(traj_new, ep, id)
+        # write_buffer(traj, ep, id)
 
 if __name__ == '__main__':
     import argparse

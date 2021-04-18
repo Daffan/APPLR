@@ -177,7 +177,9 @@ class JackalEnvContinuous(gym.Env):
         for pn in self.param_list:
             params.append(self.navi_stack.get_navi_param(pn))
             params_normal.append((params[-1]-float(range_dict[pn][1])/2)/float(range_dict[pn][1])) #normalize to [-0.5, 0.5]
-        state = np.concatenate([(scan_ranges-self.laser_clip/2)/self.laser_clip, (local_goal_position)/np.pi, np.array(params_normal)])
+        state = np.concatenate([(scan_ranges-self.laser_clip/2)/self.laser_clip,\
+                                (local_goal_position)/np.pi, \
+                                np.array(params_normal)])
 
         # check the robot distance to the goal position
         pr = np.array([self.navi_stack.robot_config.X, self.navi_stack.robot_config.Y])
@@ -263,11 +265,11 @@ class JackalEnvContinuous(gym.Env):
         return state
 
     def close(self):
-        # os.system("killall -9 rosmaster")
-        # os.system("killall -9 gzclient")
-        # os.system("killall -9 gzserver")
-        # os.system("killall -9 roscore")
-        self.parent.shutdown()
+        os.system("killall -9 rosmaster")
+        os.system("killall -9 gzclient")
+        os.system("killall -9 gzserver")
+        os.system("killall -9 roscore")
+        # self.parent.shutdown()
 
 class JackalEnvContinuousNoParam(JackalEnvContinuous):
     '''
